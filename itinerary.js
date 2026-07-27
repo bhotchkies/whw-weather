@@ -45,6 +45,11 @@ export const DAYS = [
     note: 'Land GLA 4:15 PM, transfer to Milngavie. Dinner 6:45 PM.',
     lodging: 'Premier Inn, Milngavie',
     travelDay: true,
+    // Travel days have no walking window, so they name their stops explicitly
+    // with the hours that actually matter at each.
+    stops: [
+      { role: 'Tonight', loc: 'milngavie', from: 16, to: 23 },
+    ],
   },
   {
     date: '2026-08-01', label: 'Day 1',
@@ -113,9 +118,20 @@ export const DAYS = [
   {
     date: '2026-08-08', label: 'Day 8',
     from: 'fortwilliam', mid: null, to: 'glasgow',
-    note: 'Seal Island cruise 10:30 AM (wind matters on Loch Linnhe). Bus to Glasgow 3:30 PM.',
+    note: 'Seal Island cruise 10:30 AM. Bus to Glasgow 3:30 PM.',
     lodging: 'Premier Inn, Glasgow Airport',
     travelDay: true,
-    marine: true,
+    stops: [
+      {
+        role: 'Cruise', loc: 'fortwilliam', from: 8, to: 15,
+        note: 'Board 10:00 AM, departs 10:30 AM · Fort William harbour',
+      },
+      {
+        role: 'Tonight', loc: 'glasgow', from: 16, to: 23,
+        note: 'Bus leaves Fort William 3:30 PM, ~4 hours',
+      },
+    ],
+    // Open water: wind is what cancels a boat trip, so surface it on its own.
+    marine: { name: 'Loch Linnhe', at: 'fortwilliam', from: 10, to: 12.5 },
   },
 ];

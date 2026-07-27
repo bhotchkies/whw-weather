@@ -310,29 +310,35 @@ function arrivalBand(day) {
   return { low: d + day.estLow, high: d + day.estHigh, depart: d };
 }
 
+// The numbers for one named window at one place. Used for exposed stretches on
+// foot and for the Loch Linnhe crossing. States conditions, draws no conclusion.
+function numbersPanel(locId, date, from, to, title, tag) {
+  const hours = slice(MODEL?.byLocation?.[locId], date, Math.floor(from), Math.ceil(to));
+  if (!hours.length) return '';
+  const feels = hours.map((h) => h.feelsC).filter((x) => x != null);
+  const gust = Math.max(...hours.map((h) => h.gustMph ?? 0));
+  const wind = Math.max(...hours.map((h) => h.windMph ?? 0));
+  const rain = hours.reduce((a, h) => a + (h.rainMm ?? 0), 0);
+  return `<section class="exposed">
+    <h4>${title} <em>${tag}</em></h4>
+    <p class="nums">
+      <span>~${ampm(from)}–${ampm(to)}</span>
+      <span>feels ${feels.length ? temp(Math.min(...feels)) : '—'}</span>
+      <span>wind ${Math.round(wind)}<i> gust ${Math.round(gust)}</i> mph</span>
+      <span>rain ${rain.toFixed(1)} mm<i> total</i></span>
+    </p>
+  </section>`;
+}
+
 function exposedBlocks(day) {
   if (!day.exposed?.length) return '';
   const band = arrivalBand(day);
   if (!band) return '';
-  return day.exposed.map((seg) => {
-    const from = Math.floor(band.depart + seg.from);
-    const to = Math.ceil(band.depart + seg.to);
-    const hours = slice(MODEL?.byLocation?.[seg.at], day.date, from, to);
-    if (!hours.length) return '';
-    const feels = hours.map((h) => h.feelsC).filter((x) => x != null);
-    const gust = Math.max(...hours.map((h) => h.gustMph ?? 0));
-    const wind = Math.max(...hours.map((h) => h.windMph ?? 0));
-    const rain = hours.reduce((a, h) => a + (h.rainMm ?? 0), 0);
-    return `<section class="exposed">
-      <h4>${seg.name} <em>exposed · no shelter</em></h4>
-      <p class="nums">
-        <span>~${ampm(from)}–${ampm(to)}</span>
-        <span>feels ${feels.length ? temp(Math.min(...feels)) : '—'}</span>
-        <span>wind ${Math.round(wind)}<i> gust ${Math.round(gust)}</i> mph</span>
-        <span>rain ${rain.toFixed(1)} mm<i> total</i></span>
-      </p>
-    </section>`;
-  }).join('');
+  return day.exposed.map((seg) => numbersPanel(
+    seg.at, day.date,
+    band.depart + seg.from, band.depart + seg.to,
+    seg.name, 'exposed · no shelter',
+  )).join('');
 }
 
 function dayCard(day) {
@@ -347,12 +353,20 @@ function dayCard(day) {
       : `arrive ${ampm(band.low)}–${ampm(band.high)}`);
   }
 
-  const from = LOC[day.from], to = LOC[day.to];
-  const title = day.travelDay ? to.name : `${from.name} → ${to.name}`;
+  // Travel days move too, so they get the same "A → B" heading as walking days.
+  const title = `${LOC[day.from].name} → ${LOC[day.to].name}`;
 
   let blocks = '';
   if (day.travelDay) {
-    blocks = block('Here', day.to, day.date, 6, 23);
+    const stops = day.stops ?? [{ role: 'Here', loc: day.to, from: 6, to: 23 }];
+    blocks = stops.map((s) => {
+      const note = s.note ? `<p class="lunch">${s.note}</p>` : '';
+      const panel = day.marine && day.marine.at === s.loc
+        ? numbersPanel(day.marine.at, day.date, day.marine.from, day.marine.to,
+                       day.marine.name, 'open water · wind exposed')
+        : '';
+      return block(s.role, s.loc, day.date, s.from, s.to, note + panel);
+    }).join('');
   } else {
     const walkFrom = Math.floor(band.depart);
     const walkTo = Math.min(23, Math.ceil(band.high));
