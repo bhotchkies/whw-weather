@@ -33,28 +33,28 @@ export const LOC = Object.fromEntries(LOCATIONS.map((l) => [l.id, l]));
 // side-trip destination in the planning doc, not a route stop — can appear
 // with no matching location id.
 //
-// Sourcing confidence varies. Milngavie, Drymen, Crianlarich, Tyndrum, Glasgow
-// and Edinburgh are each confirmed by at least one dedicated pronunciation
-// source. Inversnaid/Inverarnan/Inveroran/Kinlochleven/Balmaha follow regular,
-// well-established Scottish Gaelic reading conventions (inver-, loch-) that
-// are solid but not individually cited per word. Rowardennan, Orchy and
-// Tigh-na-Sleubhaich are best-effort from Gaelic orthography rules — no single
-// source confirmed these three, so treat them as a good guess, not gospel.
+// Every respelling below was reviewed and corrected by Blair (trip leader)
+// on 27 Jul 2026, superseding the research-sourced first draft. Six of the
+// fourteen changed on review — Rowardennan, Inverarnan, Orchy, Inveroran and
+// Tigh-na-Sleubhaich all differed from what web research alone produced, and
+// Tigh-na-Sleubhaich in particular turned out wrong in every syllable except
+// "na". Edinburgh is his own preferred four-syllable form, not the clipped
+// three-syllable one most guides give.
 export const PRONUNCIATIONS = [
   { id: 'milngavie',    label: 'Milngavie',           respelling: 'mull-GUY' },
   { id: 'drymen',       label: 'Drymen',               respelling: 'DRIM-en' },
   { id: 'balmaha',      label: 'Balmaha',              respelling: 'bal-ma-HAH' },
-  { id: 'rowardennan',  label: 'Rowardennan',          respelling: 'ROW-ar-DEN-an' },
+  { id: 'rowardennan',  label: 'Rowardennan',          respelling: 'ROW-a-DEN-an' },
   { id: 'inversnaid',   label: 'Inversnaid',           respelling: 'in-ver-SNAYD' },
-  { id: 'inverarnan',   label: 'Inverarnan',           respelling: 'in-ver-AR-nan' },
+  { id: 'inverarnan',   label: 'Inverarnan',           respelling: 'in-ver-AR-nun' },
   { id: 'crianlarich',  label: 'Crianlarich',          respelling: 'CREE-an-LA-rich' },
   { id: 'tyndrum',      label: 'Tyndrum',              respelling: 'TYNE-drum' },
-  { id: 'inveroran',    label: 'Inveroran',            respelling: 'in-ver-OR-an' },
-  { id: 'orchy',        label: 'Orchy',                respelling: 'OR-khee' },
+  { id: 'inveroran',    label: 'Inveroran',            respelling: 'in-ver-OR-uhn' },
+  { id: 'orchy',        label: 'Orchy',                respelling: 'OR-key' },
   { id: 'kinlochleven', label: 'Kinlochleven',         respelling: 'kin-lokh-LEV-en' },
-  { id: 'sleubhaich',   label: 'Tigh-na-Sleubhaich',   respelling: 'TY-na-SLAY-vich' },
-  { id: 'glasgow',      label: 'Glasgow',              respelling: 'GLAHZ-goh' },
-  { id: null,           label: 'Edinburgh',            respelling: 'ED-in-bruh', note: 'side trip, not on the trail' },
+  { id: 'sleubhaich',   label: 'Tigh-na-Sleubhaich',   respelling: 'Tee-nuh-SLOO-ich' },
+  { id: 'glasgow',      label: 'Glasgow',              respelling: 'GLAHZ-go' },
+  { id: null,           label: 'Edinburgh',            respelling: 'ED-in-bur-uh', note: 'side trip, not on the trail' },
 ];
 
 // Inline lookup for day-card headings: location id -> respelling.
