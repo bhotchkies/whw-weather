@@ -2,7 +2,7 @@
 // Forecast data is NOT cached here — app.js keeps that in localStorage so it can
 // reason about how old it is. The network is always tried first for data.
 
-const VERSION = 'whw-v12';
+const VERSION = 'whw-v13';
 const SHELL = [
   './',
   './index.html',

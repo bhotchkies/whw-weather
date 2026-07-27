@@ -48,7 +48,7 @@ export const DAYS = [
     // Travel days have no walking window, so they name their stops explicitly
     // with the hours that actually matter at each.
     stops: [
-      { role: 'Tonight', loc: 'milngavie', from: 16, to: 23 },
+      { role: 'End', loc: 'milngavie', from: 16, to: 23 },
     ],
   },
   {
@@ -127,7 +127,7 @@ export const DAYS = [
         note: 'Board 10:00 AM, departs 10:30 AM · Fort William harbour',
       },
       {
-        role: 'Tonight', loc: 'glasgow', from: 16, to: 23,
+        role: 'End', loc: 'glasgow', from: 16, to: 23,
         note: 'Bus leaves Fort William 3:30 PM, ~4 hours',
       },
     ],

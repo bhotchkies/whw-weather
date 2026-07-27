@@ -417,7 +417,7 @@ function dayCard(day) {
       block('Start', day.from, day.date, walkFrom, Math.min(walkFrom + 4, 23)) +
       (day.mid ? block('Midway', day.mid, day.date, midFrom, midTo, lunchLine) : '') +
       exposedBlocks(day) +
-      block('Tonight', day.to, day.date, 16, 23);
+      block('End', day.to, day.date, 16, 23);
   }
 
   return `<article class="day" data-date="${day.date}">
@@ -606,7 +606,7 @@ function todayInScotland() {
 }
 
 // Mark the current hour in every table it appears in — the same hour shows up
-// in the Start, Midway and Tonight blocks, and all of them should light up.
+// in the Start, Midway and End blocks, and all of them should light up.
 function markNow() {
   const now = nowInScotland();
   document.querySelectorAll('table.hrs tr[data-hour]').forEach((tr) => {
