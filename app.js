@@ -267,16 +267,17 @@ function rainCell(h) {
   return `<span class="rain r${t}"><b></b>${h.rainMm.toFixed(1)}${p}</span>`;
 }
 
-function hourRows(hours, { highlight = [] } = {}) {
+function hourRows(hours) {
   if (!hours.length) return '<p class="none">Not yet forecast — beyond model range.</p>';
   return `<table class="hrs"><thead><tr>
       <th>Hr</th><th>Temp</th><th>Rain</th><th>Wind</th><th>Midge</th>
     </tr></thead><tbody>${hours.map((h) => {
-      const hot = highlight.includes(h.hour) ? ' class="hi"' : '';
       const gust = h.gustMph != null && h.gustMph - (h.windMph ?? 0) > 8
         ? `<i>g${Math.round(h.gustMph)}</i>` : '';
-      return `<tr${hot}>
-        <td class="hr">${h.hour % 12 || 12}<span class="ap">${h.hour < 12 ? 'am' : 'pm'}</span></td>
+      // The "now" badge is always in the markup and revealed by CSS, so marking
+      // the current hour is a class toggle and never needs a re-render.
+      return `<tr data-date="${h.date}" data-hour="${h.hour}">
+        <td class="hr">${h.hour % 12 || 12}<span class="ap">${h.hour < 12 ? 'am' : 'pm'}</span><span class="nowtag">now</span></td>
         <td>${temp(h.tempC)}</td>
         <td>${rainCell(h)}</td>
         <td class="wind">${h.windMph == null ? '—' : Math.round(h.windMph)}${gust}</td>
@@ -405,8 +406,45 @@ function fmtDate(iso) {
 
 // ------------------------------------------------------------------ app state
 
+// Everything is anchored to UK local time, including for anyone following along
+// from Seattle — the question is always "what is it doing there, now".
+// ?now=2026-08-06T14 pins the reference time, so the current-hour marker can be
+// checked before the trip starts. Ignored when absent or malformed.
+const NOW_OVERRIDE = (() => {
+  const raw = new URLSearchParams(location.search).get('now');
+  const m = raw && raw.match(/^(\d{4}-\d{2}-\d{2})T(\d{2})/);
+  return m ? { date: m[1], hour: Number(m[2]) } : null;
+})();
+
+function nowInScotland() {
+  if (NOW_OVERRIDE) return NOW_OVERRIDE;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date()).map((p) => [p.type, p.value])
+  );
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    // Some locales report midnight as hour 24.
+    hour: Number(parts.hour) % 24,
+  };
+}
+
 function todayInScotland() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
+  return nowInScotland().date;
+}
+
+// Mark the current hour in every table it appears in — the same hour shows up
+// in the Start, Midway and Tonight blocks, and all of them should light up.
+function markNow() {
+  const now = nowInScotland();
+  document.querySelectorAll('table.hrs tr[data-hour]').forEach((tr) => {
+    tr.classList.toggle(
+      'now',
+      tr.dataset.date === now.date && Number(tr.dataset.hour) === now.hour
+    );
+  });
 }
 
 function defaultDayIndex() {
@@ -489,6 +527,7 @@ function render() {
   }).join('');
 
   document.getElementById('cards').innerHTML = dayCard(DAYS[selected]);
+  markNow();
   window.scrollTo({ top: 0 });
 }
 
@@ -512,8 +551,14 @@ function wire() {
 
   window.addEventListener('online', () => refresh({ force: true }));
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) refresh();
+    if (document.hidden) return;
+    markNow();   // the hour may well have rolled over while the app was away
+    refresh();
   });
+
+  // Roll the marker over without a full re-render, which would reset the scroll
+  // position out from under whoever is reading.
+  setInterval(markNow, 30000);
 }
 
 // High contrast is the default; 'dusk' is the deeper shirt khaki. Called with no

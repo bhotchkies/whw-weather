@@ -169,9 +169,25 @@ table.hrs th {
   color: var(--ink-mute); text-align: left; padding: 0 0 5px;
 }
 table.hrs td { padding: 5px 0; border-top: 1px solid var(--rule); vertical-align: middle; }
-table.hrs tr.hi td { background: var(--panel); }
-td.hr { font-weight: 700; font-variant-numeric: tabular-nums; width: 18%; color: var(--ink-strong); white-space: nowrap; }
+td.hr { font-weight: 700; font-variant-numeric: tabular-nums; width: 24%; color: var(--ink-strong); white-space: nowrap; }
 td.hr .ap { font-size: 10px; font-weight: 600; color: var(--ink-mute); margin-left: 1px; }
+
+/* Current hour. Marked in every block it appears in, since the same hour shows
+   up under Start, Midway and Tonight. */
+table.hrs tr.now td {
+  background: var(--panel);
+  border-top-color: var(--ink);
+  font-weight: 700;
+}
+table.hrs tr.now td.hr { box-shadow: inset 3px 0 0 var(--ink); padding-left: 7px; }
+table.hrs tr.now .t-f, table.hrs tr.now td.wind { color: var(--ink-strong); }
+.nowtag { display: none; }
+tr.now .nowtag {
+  display: inline-block; margin-left: 5px;
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700;
+  background: var(--ink); color: var(--ground);
+  padding: 1px 4px; border-radius: 2px; vertical-align: 1px;
+}
 .t-f { font-weight: 700; font-size: 15px; color: var(--ink-strong); font-variant-numeric: tabular-nums; }
 .t-c { font-size: 10px; color: var(--ink-mute); margin-left: 2px; vertical-align: 3px; }
 td.wind { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-strong); }
