@@ -102,6 +102,9 @@ header.top .sub { margin: 3px 0 0; font-size: 12px; letter-spacing: .18em; text-
   display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
 }
 #status button:active { background: var(--panel); }
+#contrast svg { width: 15px; height: 15px; }
+#contrast svg .fill { fill: var(--ink); stroke: none; }
+#contrast svg .stroke { stroke: var(--ink); fill: none; }
 #status button[disabled] { opacity: .75; }
 #refresh.busy { border-color: var(--ink); }
 #refresh.done { border-color: var(--green); color: var(--green); }
@@ -125,7 +128,7 @@ header.top .sub { margin: 3px 0 0; font-size: 12px; letter-spacing: .18em; text-
 #tabs {
   display: flex; gap: 6px; padding: 10px 12px;
   overflow-x: auto; scrollbar-width: none;
-  position: sticky; top: 39px; z-index: 19; background: var(--ground);
+  position: sticky; top: var(--status-h, 58px); z-index: 19; background: var(--ground);
   border-bottom: 1px solid var(--rule);
 }
 #tabs::-webkit-scrollbar { display: none; }
@@ -318,7 +321,7 @@ body.glance-mode #status button { font-size: 12px; padding: 7px 10px; min-height
   <span class="dot"></span>
   <span class="txt">Loading…</span>
   <button id="glance" title="Large, rain-focused view for on the move">Glance</button>
-  <button id="contrast" title="Switch to the deeper shirt palette">Moon</button>
+  <button id="contrast" aria-label="Moon"></button>
   <button id="refresh">Refresh</button>
 </p>
 

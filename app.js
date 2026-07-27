@@ -674,31 +674,44 @@ function renderStatus() {
     txt.textContent = 'Refreshing…';
     btn.innerHTML = '<span class="spin"></span>Updating';
     btn.disabled = true;
-    return;
-  }
-
-  btn.disabled = false;
-
-  if (netState === 'failed') {
-    bar.className = 'red';
-    // Always keep the age of the data visible — that is the thing that matters,
-    // not the fact that one attempt failed.
-    txt.textContent = navigator.onLine
-      ? `Refresh failed · ${s.text}`
-      : `No signal · ${s.text}`;
-    btn.textContent = 'Retry';
-    return;
-  }
-
-  bar.className = s.cls;
-  txt.textContent = s.text;
-
-  if (Date.now() < flashUntil) {
-    btn.textContent = 'Updated ✓';
-    btn.classList.add('done');
   } else {
-    btn.textContent = 'Refresh';
+    btn.disabled = false;
+
+    if (netState === 'failed') {
+      bar.className = 'red';
+      // Always keep the age of the data visible — that is the thing that
+      // matters, not the fact that one attempt failed.
+      txt.textContent = navigator.onLine
+        ? `Refresh failed · ${s.text}`
+        : `No signal · ${s.text}`;
+      btn.textContent = 'Retry';
+    } else {
+      bar.className = s.cls;
+      txt.textContent = s.text;
+
+      if (Date.now() < flashUntil) {
+        btn.textContent = 'Updated ✓';
+        btn.classList.add('done');
+      } else {
+        btn.textContent = 'Refresh';
+      }
+    }
   }
+
+  syncStatusHeight();
+}
+
+// #tabs sticks just below #status, whose height genuinely varies with its
+// content — a failed-refresh banner ("No signal · STALE — 14 h old") wraps to
+// two lines on a phone width, roughly doubling the bar's height. A hardcoded
+// offset here previously drifted from the real height (measured 39px vs an
+// actual 52-77px depending on state), so once both bars were pinned during
+// scroll, #status silently overlapped and clipped the top of the tab row —
+// reported as the tab bar "shrinking". Track the true height in a CSS custom
+// property instead of guessing at a fixed pixel value.
+function syncStatusHeight() {
+  const h = document.getElementById('status').offsetHeight;
+  document.documentElement.style.setProperty('--status-h', `${h}px`);
 }
 
 function render() {
@@ -752,6 +765,10 @@ function wire() {
   document.getElementById('contrast').addEventListener('click', () => applyTheme(true));
   document.getElementById('glance').addEventListener('click', () => setGlance(!glanceMode));
 
+  // Rotation and text-size changes can change #status's height, which #tabs's
+  // sticky offset depends on.
+  window.addEventListener('resize', syncStatusHeight);
+
   window.addEventListener('online', () => refresh({ force: true }));
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
@@ -768,14 +785,25 @@ function wire() {
 // argument from the button to toggle, and once at boot to restore the choice.
 const GROUND = { bright: '#EFE8D6', dusk: '#9C8E6D' };
 
+// Same house style as the beetle glyph: filled core shape + thin stroke accents.
+const SUN_ICON = `<svg viewBox="0 0 16 16" aria-hidden="true">
+<path class="fill" d="M5.4,8a2.6,2.6 0 1,0 5.2,0a2.6,2.6 0 1,0 -5.2,0"/>
+<path class="stroke" d="M8 2.4L8 0.6M8 13.6L8 15.4M13.6 8L15.4 8M2.4 8L0.6 8M11.7 4.3L13 3M11.7 11.7L13 13M4.3 11.7L3 13M4.3 4.3L3 3"/></svg>`;
+const MOON_ICON = `<svg viewBox="0 0 16 16" aria-hidden="true">
+<path class="fill" d="M14 8.5A6 6 0 1 1 7.5 2A4.7 4.7 0 0 0 14 8.5Z"/></svg>`;
+
 function applyTheme(toggle = false) {
   const body = document.body;
   if (toggle) body.classList.toggle('dusk');
   const dusk = body.classList.contains('dusk');
 
   localStorage.setItem('whw.theme', dusk ? 'dusk' : 'bright');
-  // The button names where you are going, not where you are.
-  document.getElementById('contrast').textContent = dusk ? 'Sun' : 'Moon';
+  // The icon shows where you're going, not where you are — a sun to bring
+  // back daylight, a moon to drop into the deeper palette.
+  const btn = document.getElementById('contrast');
+  btn.innerHTML = dusk ? SUN_ICON : MOON_ICON;
+  btn.setAttribute('aria-label', dusk ? 'Sun' : 'Moon');
+  btn.title = dusk ? 'Switch to the bright palette' : 'Switch to the deeper shirt palette';
   document.querySelector('meta[name="theme-color"]')
     .setAttribute('content', dusk ? GROUND.dusk : GROUND.bright);
 }
