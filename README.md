@@ -44,7 +44,7 @@ forecast on screen may be a day out of date. It never hides.
   and where you sleep **tonight**.
 - **Rain** is shown as a hatched block — light hatch is drizzle, dense is rain,
   cross-hatch is heavy. The percentage is the chance of it happening.
-- **Midges** are thistles, one to five. Five is Extreme.
+- **Midges** are little bug icons, one to five. Five is Extreme.
 - **Dashed boxes** mark exposed ground with no shelter — Conic Hill, Rannoch
   Moor, the Devil's Staircase, the Lairig Mor. They show the numbers for roughly
   when the group will be there. They do not tell you what to do.

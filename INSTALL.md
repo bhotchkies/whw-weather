@@ -68,7 +68,7 @@ forecast. Once we're walking it keeps showing whatever it last downloaded.
   where we **sleep**.
 - **Rain** is the hatched blocks — light is drizzle, dark is rain, cross-hatched
   is heavy. The percentage is the chance of it happening.
-- **Midges** are the little thistles, one to five. Five is as bad as it gets.
+- **Midges** are the little bug icons, one to five. Five is as bad as it gets.
 - **Dashed boxes** are exposed ground with no shelter — Conic Hill, Rannoch Moor,
   the Devil's Staircase, the Lairig Mor. They show the conditions for roughly
   when we'll be there.
