@@ -27,10 +27,17 @@ Chrome on iPhone cannot install web apps. This only works in **Safari**.
 
 1. Open **https://bhotchkies.github.io/whw-weather/** in **Chrome**.
 2. Tap the **⋮** menu, top right.
-3. Tap **Add to Home screen** (it may say **Install app**).
-4. Tap **Add** or **Install**.
+3. Tap the install option — the wording varies by phone and Chrome version:
+   **Install and create shortcut**, **Install app**, or **Add to Home screen**.
+   They all do the same thing here.
+4. Tap **Install** or **Add** on the popup that follows.
 5. **Open it once from the new home screen icon.** This is the step that saves it
    for offline use. Don't skip it.
+
+If your menu shows both an install option AND a separate "Add to Home screen"
+further down, use the **install** one — it makes the app open full-screen
+without Chrome's address bar, and only the install path reliably keeps it
+working offline.
 
 ---
 
@@ -68,8 +75,12 @@ forecast. Once we're walking it keeps showing whatever it last downloaded.
 - Days marked **outlook** are too far ahead for a detailed forecast. Treat them
   as a rough steer.
 - **Glance** is a big-type screen for reading on the move — it tells you when the
-  rain starts or stops, and little else. **Refresh** grabs new data if you spot a
-  bar of signal.
+  rain starts or stops, and little else.
+- **Moon** switches to a deeper, darker colour scheme; the button then says
+  **Sun** to switch back. The default is already the easier one to read outside.
+- **Refresh** grabs new data if you spot a bar of signal. It spins while it
+  works and shows **Updated** when it's done, or **Retry** if it couldn't reach
+  the network.
 
 Temperatures are °F with °C beside them. Wind is mph (`g` means gusts). All times
 are UK time, so parents at home see our hours, not theirs.

@@ -27,7 +27,8 @@ Chrome on iOS cannot install web apps. Use Safari.
 
 1. Open the link in **Chrome**.
 2. Tap the **⋮** menu, top right.
-3. Tap **Add to Home screen** (or **Install app** if offered).
+3. Tap the install option — wording varies by phone: **Install and create
+   shortcut**, **Install app**, or **Add to Home screen**. Same result here.
 4. Open it once from the home screen icon so it caches.
 
 ---
