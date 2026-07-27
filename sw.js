@@ -2,7 +2,7 @@
 // Forecast data is NOT cached here — app.js keeps that in localStorage so it can
 // reason about how old it is. The network is always tried first for data.
 
-const VERSION = 'whw-v6';
+const VERSION = 'whw-v7';
 const SHELL = [
   './',
   './index.html',
@@ -18,9 +18,15 @@ const SHELL = [
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(VERSION)
-      // addAll fails the whole install if any single file 404s, so add
-      // individually and tolerate misses.
-      .then((c) => Promise.all(SHELL.map((u) => c.add(u).catch(() => {}))))
+      // Fetch each with cache: 'no-store' so a fresh install never seeds itself
+      // from a stale HTTP-cached copy. Done individually rather than addAll so a
+      // single 404 does not fail the whole install.
+      .then((c) => Promise.all(SHELL.map(async (u) => {
+        try {
+          const res = await fetch(u, { cache: 'no-store', credentials: 'same-origin' });
+          if (res.ok) await c.put(u, res);
+        } catch { /* offline mid-install — networkFirst will fill it in later */ }
+      })))
       .then(() => self.skipWaiting())
   );
 });
@@ -58,7 +64,16 @@ async function networkFirst(request) {
   try {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), NET_TIMEOUT_MS);
-    const res = await fetch(request, { signal: ctl.signal });
+    // cache: 'no-store' is essential, not decoration. GitHub Pages serves the
+    // shell with Cache-Control: max-age=600, so a plain fetch() would return the
+    // browser's HTTP-cached copy for ten minutes after every deploy — making
+    // this "network first" in name only. Fetch by URL rather than passing the
+    // Request through, so navigation requests need no special handling.
+    const res = await fetch(request.url, {
+      signal: ctl.signal,
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
     clearTimeout(timer);
     if (res && res.ok) {
       cache.put(request, res.clone());
