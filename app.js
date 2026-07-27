@@ -543,7 +543,14 @@ let glancePointOverride = null; // set by tapping the location name
 function renderGlance() {
   const now = nowInScotland();
   const day = DAYS[selected];
-  const hourNow = day.date === now.date ? now.hour + 0.01 : (day.departBy ? Number(day.departBy.slice(0, 2)) : 9);
+  // Always the real current hour, regardless of which day's card is showing —
+  // so previewing a day that hasn't happened yet (or reviewing one that has)
+  // still reads as "if it were this time of day". The +0.01 breaks ties at
+  // exact hour boundaries consistently. Previously this only used live time
+  // when the selected day's date matched today's real date, and fell back to
+  // two DIFFERENT hardcoded guesses (9 here, 8 below) the rest of the time —
+  // an inconsistency, not a design choice; removed rather than reconciled.
+  const hourNow = now.hour + 0.01;
 
   const inferred = inferPoint(day, hourNow);
   const points = inferred.points ?? [{ loc: day.to }];
@@ -554,8 +561,7 @@ function renderGlance() {
   // Only offer the cycle when the day actually has somewhere else to go.
   const canCycle = points.length > 1;
 
-  const startAt = day.date === now.date ? hourNow : (day.departBy ? Number(day.departBy.slice(0, 2)) : 8);
-  const { slots, coarse } = quartersFrom(locId, day.date, startAt, GLANCE_SCAN_HOURS);
+  const { slots, coarse } = quartersFrom(locId, day.date, hourNow, GLANCE_SCAN_HOURS);
   const head = glanceHeadline(slots);
 
   // Supporting values come from the hourly series — 15-min resolution only
