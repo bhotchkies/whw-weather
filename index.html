@@ -233,9 +233,10 @@ body.glance-mode #status button { font-size: 12px; padding: 7px 10px; min-height
 .glance { padding: 8px 0 0; text-align: center; }
 
 /* Location: large, and obviously tappable, because a wrong guess must be
-   correctable without hunting for a control. */
+   correctable without hunting for a control. Rendered as a plain <p> when the
+   day has only one location, so it carries the same weight without the hint. */
 .gloc {
-  display: block; width: 100%; background: none; border: 0;
+  display: block; width: 100%; margin: 0; background: none; border: 0;
   color: var(--ink-strong); font-family: Georgia, serif; font-weight: 700;
   font-size: 27px; letter-spacing: .01em; padding: 6px 0 2px; line-height: 1.1;
 }

@@ -533,6 +533,8 @@ function renderGlance() {
     ? glancePointOverride % points.length
     : (inferred.index ?? 0);
   const locId = points[idx].loc;
+  // Only offer the cycle when the day actually has somewhere else to go.
+  const canCycle = points.length > 1;
 
   const startAt = day.date === now.date ? hourNow : (day.departBy ? Number(day.departBy.slice(0, 2)) : 8);
   const { slots, coarse } = quartersFrom(locId, day.date, startAt, GLANCE_SCAN_HOURS);
@@ -549,7 +551,9 @@ function renderGlance() {
   const midge = h?.midge != null ? `${h.midge}<b>/10</b>` : '—';
 
   return `<div class="glance">
-    <button class="gloc" id="gloc">${LOC[locId].name}<span class="gcyc">tap to change</span></button>
+    ${canCycle
+      ? `<button class="gloc" id="gloc">${LOC[locId].name}<span class="gcyc">tap to change</span></button>`
+      : `<p class="gloc">${LOC[locId].name}</p>`}
     <p class="ghl">${head.label}</p>
     <p class="ghv">${head.value}</p>
     ${glanceStrip(slots)}
@@ -696,7 +700,8 @@ function render() {
     document.getElementById('tabs').innerHTML = '';
     document.getElementById('cards').innerHTML = renderGlance();
     document.getElementById('gexit').addEventListener('click', () => setGlance(false));
-    document.getElementById('gloc').addEventListener('click', () => {
+    // Absent on single-location days, where there is nothing to cycle to.
+    document.getElementById('gloc')?.addEventListener('click', () => {
       glancePointOverride = (glancePointOverride ?? 0) + 1;
       render();
     });
