@@ -35,15 +35,17 @@ export const LOC = Object.fromEntries(LOCATIONS.map((l) => [l.id, l]));
 //
 // Every respelling below was reviewed and corrected by Blair (trip leader)
 // on 27 Jul 2026, superseding the research-sourced first draft. Six of the
-// fourteen changed on review — Rowardennan, Inverarnan, Orchy, Inveroran and
-// Tigh-na-Sleubhaich all differed from what web research alone produced, and
-// Tigh-na-Sleubhaich in particular turned out wrong in every syllable except
-// "na". Edinburgh is his own preferred four-syllable form, not the clipped
-// three-syllable one most guides give.
+// original fourteen changed on review — Rowardennan, Inverarnan, Orchy,
+// Inveroran and Tigh-na-Sleubhaich all differed from what web research alone
+// produced, and Tigh-na-Sleubhaich in particular turned out wrong in every
+// syllable except "na". Edinburgh is his own preferred four-syllable form,
+// not the clipped three-syllable one most guides give. Loch Lomond and Loch
+// Linnhe were added afterward at his request and confirmed as proposed.
 export const PRONUNCIATIONS = [
   { id: 'milngavie',    label: 'Milngavie',           respelling: 'mull-GUY' },
   { id: 'drymen',       label: 'Drymen',               respelling: 'DRIM-en' },
   { id: 'balmaha',      label: 'Balmaha',              respelling: 'bal-ma-HAH' },
+  { id: null,           label: 'Loch Lomond',          respelling: 'lokh LOH-mund', note: 'the loch you walk beside, days 1-3' },
   { id: 'rowardennan',  label: 'Rowardennan',          respelling: 'ROW-a-DEN-an' },
   { id: 'inversnaid',   label: 'Inversnaid',           respelling: 'in-ver-SNAYD' },
   { id: 'inverarnan',   label: 'Inverarnan',           respelling: 'in-ver-AR-nun' },
@@ -53,6 +55,7 @@ export const PRONUNCIATIONS = [
   { id: 'orchy',        label: 'Orchy',                respelling: 'OR-key' },
   { id: 'kinlochleven', label: 'Kinlochleven',         respelling: 'kin-lokh-LEV-en' },
   { id: 'sleubhaich',   label: 'Tigh-na-Sleubhaich',   respelling: 'Tee-nuh-SLOO-ich' },
+  { id: null,           label: 'Loch Linnhe',          respelling: 'lokh LIN-ee', note: 'the loch on the Day 8 cruise' },
   { id: 'glasgow',      label: 'Glasgow',              respelling: 'GLAHZ-go' },
   { id: null,           label: 'Edinburgh',            respelling: 'ED-in-bur-uh', note: 'side trip, not on the trail' },
 ];
