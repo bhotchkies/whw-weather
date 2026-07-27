@@ -453,24 +453,15 @@ function wire() {
   });
 }
 
-async function boot() {
+function boot() {
   if (localStorage.getItem('whw.bright') === '1') document.body.classList.add('bright');
 
   const q = Number(new URLSearchParams(location.search).get('day'));
   if (q >= 1 && q <= DAYS.length) selected = q - 1;
 
+  // No baked-in fallback data: a PWA cannot be installed without a network in
+  // the first place, so a first launch always has connectivity to fetch live.
   MODEL = loadCache();
-  if (!MODEL) {
-    // Snapshot committed at deploy time, so a fresh install with no signal
-    // still shows something rather than an empty shell.
-    try {
-      const r = await fetch('./snapshot.json');
-      if (r.ok) {
-        const snap = await r.json();
-        MODEL = { fetchedAt: snap.fetchedAt, byLocation: normalise(snap.raw) };
-      }
-    } catch { /* nothing cached and no snapshot — render the empty state */ }
-  }
 
   wire();
   render();

@@ -70,6 +70,11 @@ Rain is mm. All times are UK time, including for anyone watching from home.
 - A full refresh is about **29 KB** compressed, so refreshing often costs
   almost nothing.
 
+There is deliberately **no baked-in fallback forecast**. A web app cannot be
+installed without a network connection in the first place, so a first launch
+always has connectivity to fetch live data — a committed snapshot would have
+been dead weight in every phone's cache.
+
 ### Files
 
 | File | Purpose |
@@ -79,17 +84,6 @@ Rain is mm. All times are UK time, including for anyone watching from home.
 | `itinerary.js` | Route, stops, times — from the Daily tab of the planning doc |
 | `midge.js` | Midge index |
 | `sw.js` | Offline cache |
-| `snapshot.json` | Forecast baked in at deploy time, so a fresh install shows something |
-
-### Re-baking the snapshot before departure
-
-Worth doing on 29–30 July so a late install has current data:
-
-```bash
-python bake_snapshot.py
-```
-
-Then commit and push.
 
 ---
 
