@@ -2,7 +2,7 @@
 // Live-first, cache-as-fallback: every load tries the network, and falls back to
 // the last good response when there is no signal. Nothing here needs an API key.
 
-import { LOCATIONS, LOC, DAYS } from './itinerary.js';
+import { LOCATIONS, LOC, DAYS, PRONUNCIATIONS, PRONOUNCE_BY_ID } from './itinerary.js';
 import { midgeScore, midgeBand } from './midge.js';
 
 const CACHE_KEY = 'whw.forecast.v2';
@@ -331,12 +331,18 @@ function slice(byDate, date, from, to) {
   return hours.filter((h) => h.hour >= from && h.hour <= to);
 }
 
+// Small muted respelling after a place name, only where one exists.
+function pronounced(locId) {
+  const p = PRONOUNCE_BY_ID[locId];
+  return p ? ` <span class="pron">${p}</span>` : '';
+}
+
 function block(role, locId, date, from, to, extra = '') {
   const loc = LOC[locId];
   const hours = slice(MODEL?.byLocation?.[locId], date, from, to);
   const outlook = hours.length && hours.every((h) => h.outlook);
   return `<section class="blk${outlook ? ' outlook' : ''}">
-    <h3><span class="role">${role}</span> ${loc.name}
+    <h3><span class="role">${role}</span> ${loc.name}${pronounced(locId)}
       ${outlook ? '<em class="tag">outlook</em>' : ''}</h3>
     <p class="verdict">${verdict(hours)}</p>
     ${extra}
@@ -395,6 +401,9 @@ function dayCard(day) {
   }
 
   // Travel days move too, so they get the same "A → B" heading as walking days.
+  // Deliberately no inline pronunciation here — two respellings plus the arrow
+  // reliably wrapped onto an awkward extra line at phone width. The block
+  // headers below (Start/Midway/End) carry it instead; there's room there.
   const title = `${LOC[day.from].name} → ${LOC[day.to].name}`;
 
   let blocks = '';
@@ -574,6 +583,16 @@ function renderGlance() {
     </div>
     <button class="gexit" id="gexit">Detail</button>
   </div>`;
+}
+
+// Static reference list, rendered once at boot — alphabetical, since this is a
+// lookup ("was it Balmaha or Kinlochleven?"), not a narrative walk-through.
+function renderPronunciationList() {
+  const sorted = [...PRONUNCIATIONS].sort((a, b) => a.label.localeCompare(b.label));
+  document.getElementById('pronList').innerHTML = sorted.map((p) => `<li>
+    <b>${p.label}</b>
+    <span>${p.respelling}${p.note ? `<i>${p.note}</i>` : ''}</span>
+  </li>`).join('');
 }
 
 function fmtDate(iso) {
@@ -824,6 +843,7 @@ function boot() {
   // the first place, so a first launch always has connectivity to fetch live.
   MODEL = loadCache();
 
+  renderPronunciationList();
   wire();
   render();
   refresh({ force: true });

@@ -25,6 +25,43 @@ export const LOCATIONS = [
 
 export const LOC = Object.fromEntries(LOCATIONS.map((l) => [l.id, l]));
 
+// Plain-English phonetic respelling, not IPA — the audience is a Scout troop,
+// not linguists. Only the genuinely non-obvious names; skips ones an English
+// speaker would just read correctly (Kingshouse, Fort William, Drymen-adjacent
+// regulars). `label` is denormalised from LOCATIONS.name on purpose, so this
+// list stays correct even if a display name changes, and so Edinburgh — a
+// side-trip destination in the planning doc, not a route stop — can appear
+// with no matching location id.
+//
+// Sourcing confidence varies. Milngavie, Drymen, Crianlarich, Tyndrum, Glasgow
+// and Edinburgh are each confirmed by at least one dedicated pronunciation
+// source. Inversnaid/Inverarnan/Inveroran/Kinlochleven/Balmaha follow regular,
+// well-established Scottish Gaelic reading conventions (inver-, loch-) that
+// are solid but not individually cited per word. Rowardennan, Orchy and
+// Tigh-na-Sleubhaich are best-effort from Gaelic orthography rules — no single
+// source confirmed these three, so treat them as a good guess, not gospel.
+export const PRONUNCIATIONS = [
+  { id: 'milngavie',    label: 'Milngavie',           respelling: 'mull-GUY' },
+  { id: 'drymen',       label: 'Drymen',               respelling: 'DRIM-en' },
+  { id: 'balmaha',      label: 'Balmaha',              respelling: 'bal-ma-HAH' },
+  { id: 'rowardennan',  label: 'Rowardennan',          respelling: 'ROW-ar-DEN-an' },
+  { id: 'inversnaid',   label: 'Inversnaid',           respelling: 'in-ver-SNAYD' },
+  { id: 'inverarnan',   label: 'Inverarnan',           respelling: 'in-ver-AR-nan' },
+  { id: 'crianlarich',  label: 'Crianlarich',          respelling: 'CREE-an-LA-rich' },
+  { id: 'tyndrum',      label: 'Tyndrum',              respelling: 'TYNE-drum' },
+  { id: 'inveroran',    label: 'Inveroran',            respelling: 'in-ver-OR-an' },
+  { id: 'orchy',        label: 'Orchy',                respelling: 'OR-khee' },
+  { id: 'kinlochleven', label: 'Kinlochleven',         respelling: 'kin-lokh-LEV-en' },
+  { id: 'sleubhaich',   label: 'Tigh-na-Sleubhaich',   respelling: 'TY-na-SLAY-vich' },
+  { id: 'glasgow',      label: 'Glasgow',              respelling: 'GLAHZ-goh' },
+  { id: null,           label: 'Edinburgh',            respelling: 'ED-in-bruh', note: 'side trip, not on the trail' },
+];
+
+// Inline lookup for day-card headings: location id -> respelling.
+export const PRONOUNCE_BY_ID = Object.fromEntries(
+  PRONUNCIATIONS.filter((p) => p.id).map((p) => [p.id, p.respelling])
+);
+
 // Exposed stretches with no shelter. Offsets are hours after the depart-by time.
 // These are marked so the numbers for that window can be surfaced; the app makes
 // no judgement about whether the conditions are acceptable.

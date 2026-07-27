@@ -147,6 +147,8 @@ main { padding: 0 12px 40px; max-width: 640px; margin: 0 auto; }
 .day header { padding: 16px 0 12px; border-bottom: 1.5px solid var(--rule); }
 .eyebrow { margin: 0; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; font-weight: 700; color: var(--ink-mute); }
 .day h2 { margin: 5px 0 6px; font-size: 22px; font-family: Georgia, serif; letter-spacing: .02em; }
+.pron { font-family: system-ui, sans-serif; font-size: 12px; font-weight: 400; letter-spacing: .01em; color: var(--ink-mute); }
+.blk h3 .pron { font-size: 11px; }
 .meta { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-strong); }
 .note { margin: 8px 0 0; font-size: 13px; font-style: italic; color: var(--ink-mute); }
 .lodging { margin: 4px 0 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
@@ -222,6 +224,36 @@ svg.mg.off { opacity: .25; }
 .exposed .nums i { font-style: normal; font-weight: 400; font-size: 11px; color: var(--ink-mute); }
 
 footer { text-align: center; padding: 18px 16px 30px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-mute); }
+footer .attrib { margin: 14px 0 0; }
+
+/* Always-visible: the two links you'd actually reach for in a hurry. */
+.flinks { margin: 0; display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.flinks a {
+  color: var(--ink); font-weight: 700; letter-spacing: .04em; text-transform: none;
+  font-size: 13px; text-decoration: none; border-bottom: 1px solid var(--rule);
+  padding-bottom: 1px;
+}
+.flinks a:active { color: var(--ink-mute); }
+
+/* Collapsed reference list — tap to expand, native <details> so it needs no JS. */
+.pron-list { margin: 14px auto 0; max-width: 320px; text-align: left; }
+.pron-list summary {
+  text-align: center; cursor: pointer; font-size: 12px; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--ink);
+  padding: 6px 0; list-style: none;
+}
+.pron-list summary::-webkit-details-marker { display: none; }
+.pron-list summary::after { content: ' ▾'; }
+.pron-list[open] summary::after { content: ' ▴'; }
+.pron-list ul { margin: 6px 0 0; padding: 0; list-style: none; }
+.pron-list li {
+  display: flex; justify-content: space-between; gap: 10px;
+  padding: 5px 2px; border-top: 1px solid var(--rule);
+  font-size: 13px; text-transform: none; letter-spacing: normal;
+}
+.pron-list li b { font-weight: 700; color: var(--ink); }
+.pron-list li span { color: var(--ink-mute); font-family: system-ui, sans-serif; white-space: nowrap; }
+.pron-list li i { font-style: normal; font-size: 10px; display: block; text-align: right; }
 
 /* ---- glance mode -------------------------------------------------------
    One screen, arm's length, no glasses, one hand. Everything here is sized to
@@ -329,8 +361,19 @@ body.glance-mode #status button { font-size: 12px; padding: 7px 10px; min-height
 <main id="cards"></main>
 
 <footer>
-  Weather: Open-Meteo (UKMO seamless) · Midge index is a weather proxy —<br>
-  it cannot see sheltered pockets, hollows or lochside corners.
+  <p class="flinks">
+    <a href="https://docs.google.com/document/d/1F_n6NouniQD7eSmYgSOcgfOASfFeeP_dxSRqNQyTuDM/edit?usp=sharing" target="_blank" rel="noopener">Trip planning doc</a>
+    <a href="https://share.garmin.com/BlairHikes" target="_blank" rel="noopener">Live Garmin tracker</a>
+  </p>
+  <details class="pron-list">
+    <summary>Place names</summary>
+    <ul id="pronList"></ul>
+  </details>
+  <p class="attrib">
+    Doc and tracker need signal to open — everything else here works offline.<br>
+    Weather: Open-Meteo (UKMO seamless) · Midge index is a weather proxy —<br>
+    it cannot see sheltered pockets, hollows or lochside corners.
+  </p>
 </footer>
 
 <script type="module" src="./app.js"></script>
