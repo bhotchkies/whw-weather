@@ -72,8 +72,9 @@ Rain is mm. All times are UK time, including for anyone watching from home.
 - **Offline:** a service worker caches the page; forecast data is kept in
   `localStorage` with its timestamp. The network is always tried first, with an
   8-second timeout, and it falls back to the last good data.
-- A full refresh is about **29 KB** compressed, so refreshing often costs
-  almost nothing.
+- A full refresh is about **110 KB** compressed — 16 days, hourly, for all 16
+  locations, plus 15-minute precipitation for the next 48 hours. Roughly a third
+  of a photo, so refreshing often costs almost nothing.
 
 There is deliberately **no baked-in fallback forecast**. A web app cannot be
 installed without a network connection in the first place, so a first launch

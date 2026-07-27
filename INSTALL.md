@@ -1,0 +1,105 @@
+# WHW Weather — install before you leave
+
+**https://bhotchkies.github.io/whw-weather/**
+
+Hourly weather and midge forecast for every stop on our route. It works with no
+mobile signal, which matters on 6 August — there is none on Rannoch Moor.
+
+> **Do this at home, on wifi, before you fly.**
+> The app saves itself to your phone the first time you open it. A phone that has
+> never opened it will show nothing on the trail.
+
+---
+
+## iPhone / iPad — you must use Safari
+
+Chrome on iPhone cannot install web apps. This only works in **Safari**.
+
+1. Open **https://bhotchkies.github.io/whw-weather/** in **Safari**.
+2. Tap the **Share** button — the square with an arrow pointing up, at the bottom
+   of the screen.
+3. Scroll down the list and tap **Add to Home Screen**.
+4. Tap **Add**, top right.
+5. **Open it once from the new home screen icon.** This is the step that saves it
+   for offline use. Don't skip it.
+
+## Android
+
+1. Open **https://bhotchkies.github.io/whw-weather/** in **Chrome**.
+2. Tap the **⋮** menu, top right.
+3. Tap **Add to Home screen** (it may say **Install app**).
+4. Tap **Add** or **Install**.
+5. **Open it once from the new home screen icon.** This is the step that saves it
+   for offline use. Don't skip it.
+
+---
+
+## How to check it worked
+
+Turn on aeroplane mode and open the app from the home screen icon. If you see
+the forecast, you're done. If you see an error page, repeat the steps above.
+
+Turn aeroplane mode back off afterwards.
+
+---
+
+## How to use it
+
+**Look at the bar across the top first.** It tells you how old the data is.
+
+| Colour | Meaning |
+|---|---|
+| Green | Fresh |
+| Amber | A few hours old |
+| Red | Stale — could be a day out of date |
+
+**Open it each morning on the wifi** before we set off. That's what loads the day's
+forecast. Once we're walking it keeps showing whatever it last downloaded.
+
+- The numbers along the top are the days. Today is outlined. Tap any day.
+- Each day shows three places: where we **start**, where we stop **midway**, and
+  where we **sleep**.
+- **Rain** is the hatched blocks — light is drizzle, dark is rain, cross-hatched
+  is heavy. The percentage is the chance of it happening.
+- **Midges** are the little thistles, one to five. Five is as bad as it gets.
+- **Dashed boxes** are exposed ground with no shelter — Conic Hill, Rannoch Moor,
+  the Devil's Staircase, the Lairig Mor. They show the conditions for roughly
+  when we'll be there.
+- Days marked **outlook** are too far ahead for a detailed forecast. Treat them
+  as a rough steer.
+- **Glance** is a big-type screen for reading on the move — it tells you when the
+  rain starts or stops, and little else. **Refresh** grabs new data if you spot a
+  bar of signal.
+
+Temperatures are °F with °C beside them. Wind is mph (`g` means gusts). All times
+are UK time, so parents at home see our hours, not theirs.
+
+---
+
+## Optional: a second icon straight to Glance
+
+If you like the big-type screen, add a second home screen icon that opens
+directly to it — same steps as above, but use this link instead:
+
+**https://bhotchkies.github.io/whw-weather/?glance=1**
+
+You end up with two icons: one for planning the day, one for checking on the move.
+
+---
+
+## Parents at home
+
+The same link works in any browser, no install needed. It shows what we're
+walking into, in UK time. Live tracking is separate:
+**https://share.garmin.com/BlairHikes**
+
+---
+
+## One honest warning about the midge forecast
+
+The midge number is worked out from the weather — wind, temperature, humidity,
+time of day. It is not a measurement of actual midges. It cannot see sheltered
+spots, and campsite edges, woodland hollows and lochside corners are reliably
+worse than it says.
+
+**Pack the head net regardless.**
