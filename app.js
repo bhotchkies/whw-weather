@@ -9,6 +9,11 @@ const CACHE_KEY = 'whw.forecast.v2';
 const REFRESH_THROTTLE_MS = 15 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 const FLASH_MS = 1800;
+
+// Rain tiers, in mm per hour. The headline windows use RAIN; DRIZZLE is shown
+// but reads as damp rather than as a reason to stop and put shells on.
+const DRIZZLE_MM = 0.1;
+const RAIN_MM = 0.5;
 const TZ = 'Europe/London';
 
 // UKMO seamless is the model we act on; best_match supplies rain probability
@@ -28,6 +33,10 @@ function apiUrl() {
     latitude: LOCATIONS.map((l) => l.lat).join(','),
     longitude: LOCATIONS.map((l) => l.lon).join(','),
     hourly: HOURLY_VARS.join(','),
+    // 15-minute precipitation powers glance mode. Available ~48h ahead, which is
+    // exactly the window you can act on. Costs ~13 KB gzipped for all locations.
+    minutely_15: 'precipitation',
+    forecast_minutely_15: '192',
     daily: 'sunrise,sunset',
     models: `${PRIMARY},${FALLBACK}`,
     timezone: TZ,
@@ -99,16 +108,43 @@ function buildHours(entry) {
   return byDate;
 }
 
-let MODEL = null; // { fetchedAt, byLocation: { id: { date: [hours] } } }
+// 15-minute precipitation is a SUM over the preceding quarter hour, not a rate,
+// so the hourly mm/h thresholds are divided by four.
+const SLOT_DRIZZLE_MM = DRIZZLE_MM / 4;
+const SLOT_RAIN_MM = RAIN_MM / 4;
+
+function buildQuarters(entry) {
+  const M = entry.minutely_15;
+  if (!M?.time) return [];
+  const key = `precipitation_${PRIMARY}`;
+  const alt = `precipitation_${FALLBACK}`;
+  const a = M[key], b = M[alt];
+  return M.time.map((iso, i) => {
+    const mm = (a && a[i] != null) ? a[i] : (b ? b[i] : null);
+    return {
+      iso,
+      date: iso.slice(0, 10),
+      // Fractional hour of day, so 14:15 becomes 14.25.
+      at: Number(iso.slice(11, 13)) + Number(iso.slice(14, 16)) / 60,
+      mm: mm ?? 0,
+      tier: mm == null ? 0 : mm >= SLOT_RAIN_MM ? 2 : mm >= SLOT_DRIZZLE_MM ? 1 : 0,
+    };
+  });
+}
+
+let MODEL = null; // { fetchedAt, byLocation: {id: {date: [hours]}}, quarters: {id: [...]} }
 
 function normalise(raw) {
   const list = Array.isArray(raw) ? raw : [raw];
   const byLocation = {};
+  const quarters = {};
   list.forEach((entry, i) => {
     const id = LOCATIONS[i]?.id;
-    if (id) byLocation[id] = buildHours(entry);
+    if (!id) return;
+    byLocation[id] = buildHours(entry);
+    quarters[id] = buildQuarters(entry);
   });
-  return byLocation;
+  return { byLocation, quarters };
 }
 
 function loadCache() {
@@ -116,7 +152,7 @@ function loadCache() {
     const s = localStorage.getItem(CACHE_KEY);
     if (!s) return null;
     const o = JSON.parse(s);
-    return { fetchedAt: o.fetchedAt, byLocation: normalise(o.raw) };
+    return { fetchedAt: o.fetchedAt, ...normalise(o.raw) };
   } catch { return null; }
 }
 
@@ -146,7 +182,7 @@ async function refresh({ force = false } = {}) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const raw = await res.json();
     saveCache(raw);
-    MODEL = { fetchedAt: Date.now(), byLocation: normalise(raw) };
+    MODEL = { fetchedAt: Date.now(), ...normalise(raw) };
     netState = 'idle';
     // Hold a visible confirmation briefly, otherwise a fast refresh looks
     // identical to nothing having happened.
@@ -189,9 +225,6 @@ function clock(hhmmStr) {
   return ampm(H + M / 60);
 }
 
-// Rain tiers. The headline windows use RAIN; DRIZZLE is shown but reads as damp.
-const DRIZZLE_MM = 0.1;
-const RAIN_MM = 0.5;
 function rainTier(mm) {
   if (mm == null) return 0;
   if (mm >= 2.0) return 3;
@@ -399,6 +432,119 @@ function dayCard(day) {
   </article>`;
 }
 
+// ---------------------------------------------------------------- glance mode
+//
+// One screen, read at arm's length without glasses, one hand, three seconds.
+// The headline is the next CHANGE in the rain, not the current state — you can
+// already see whether it is raining; what you cannot see is when it stops.
+
+const GLANCE_STRIP_HOURS = 4;      // 16 blocks at ~22px on a 375px screen
+const GLANCE_SCAN_HOURS = 8;       // how far ahead to look for the next flip
+
+// Which of the day's points the group is nearest, from the schedule. Deliberately
+// not GPS: no permission prompt, no battery, no cold-fix delay, and the name is
+// printed large so a wrong guess is obvious and one tap away from fixed.
+function inferPoint(day, hourNow) {
+  const pts = [];
+  if (day.stops) {
+    day.stops.forEach((s) => pts.push({ loc: s.loc, from: s.from }));
+  } else {
+    const band = arrivalBand(day);
+    if (!band) return [{ loc: day.to, from: 0 }];
+    pts.push({ loc: day.from, from: band.depart });
+    if (day.mid) pts.push({ loc: day.mid, from: band.depart + (band.high - band.depart) * 0.45 });
+    pts.push({ loc: day.to, from: band.high - 0.5 });
+  }
+  let idx = 0;
+  pts.forEach((p, i) => { if (hourNow >= p.from) idx = i; });
+  return { points: pts, index: idx };
+}
+
+// Quarter-hour slots for a location from `fromHour` onward on `date`.
+function quartersFrom(locId, date, fromHour, spanHours) {
+  const all = MODEL?.quarters?.[locId] ?? [];
+  const out = [];
+  for (const q of all) {
+    if (q.date < date) continue;
+    if (q.date === date && q.at < fromHour) continue;
+    out.push(q);
+    if (out.length >= spanHours * 4) break;
+  }
+  return out;
+}
+
+// The next wet→dry or dry→wet flip. Returns null when nothing changes in range.
+function nextFlip(slots) {
+  if (!slots.length) return null;
+  const wetNow = slots[0].tier > 0;
+  const found = slots.find((q) => (q.tier > 0) !== wetNow);
+  return { wetNow, startTier: slots[0].tier, flip: found ?? null };
+}
+
+function glanceHeadline(slots) {
+  const s = nextFlip(slots);
+  if (!s) return { label: 'No forecast', value: '—' };
+  const word = s.startTier === 0 ? 'Dry' : s.startTier === 1 ? 'Drizzle' : 'Rain';
+  if (!s.flip) return { label: word, value: `Next ${GLANCE_SCAN_HOURS} hrs` };
+  return { label: `${word} until`, value: ampm(s.flip.at) };
+}
+
+function glanceStrip(slots) {
+  const blocks = slots.slice(0, GLANCE_STRIP_HOURS * 4);
+  if (!blocks.length) return '';
+  const cells = blocks.map((q) =>
+    `<i class="q t${q.tier}" title="${ampm(q.at)} ${q.mm.toFixed(2)}mm"></i>`).join('');
+  // A tick under each whole hour, so the strip can be read against the clock.
+  const ticks = blocks.map((q, i) =>
+    `<i class="qt">${i % 4 === 0 ? ampm(Math.floor(q.at)).replace(' ', '') : ''}</i>`).join('');
+  return `<div class="strip">${cells}</div><div class="strip ticks">${ticks}</div>`;
+}
+
+function glanceValue(label, value) {
+  return `<div class="gv"><span class="gvl">${label}</span><span class="gvv">${value}</span></div>`;
+}
+
+let glancePointOverride = null; // set by tapping the location name
+
+function renderGlance() {
+  const now = nowInScotland();
+  const day = DAYS[selected];
+  const hourNow = day.date === now.date ? now.hour + 0.01 : (day.departBy ? Number(day.departBy.slice(0, 2)) : 9);
+
+  const inferred = inferPoint(day, hourNow);
+  const points = inferred.points ?? [{ loc: day.to }];
+  const idx = glancePointOverride != null
+    ? glancePointOverride % points.length
+    : (inferred.index ?? 0);
+  const locId = points[idx].loc;
+
+  const slots = quartersFrom(locId, day.date, day.date === now.date ? hourNow : 0, GLANCE_SCAN_HOURS);
+  const head = glanceHeadline(slots);
+
+  // Supporting values come from the hourly series — 15-min resolution only
+  // exists for precipitation.
+  const hours = MODEL?.byLocation?.[locId]?.[day.date] ?? [];
+  const h = hours.find((x) => x.hour === Math.floor(hourNow)) ?? hours[0];
+  const feels = h?.feelsC != null ? `${f(h.feelsC)}°` : '—';
+  const wind = h?.windMph != null
+    ? `${Math.round(h.windMph)}${h.gustMph != null ? `<b>g${Math.round(h.gustMph)}</b>` : ''}`
+    : '—';
+  const midge = h?.midge != null ? `${h.midge}<b>/10</b>` : '—';
+
+  return `<div class="glance">
+    <button class="gloc" id="gloc">${LOC[locId].name}<span class="gcyc">tap to change</span></button>
+    <p class="ghl">${head.label}</p>
+    <p class="ghv">${head.value}</p>
+    ${glanceStrip(slots)}
+    <div class="gvals">
+      ${glanceValue('Feels', feels)}
+      ${glanceValue('Wind', wind)}
+      ${glanceValue('Midge', midge)}
+    </div>
+    <button class="gexit" id="gexit">Detail</button>
+  </div>`;
+}
+
 function fmtDate(iso) {
   const d = new Date(`${iso}T12:00:00`);
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -455,6 +601,17 @@ function defaultDayIndex() {
 }
 
 let selected = defaultDayIndex();
+let glanceMode = false;
+
+function setGlance(on) {
+  glanceMode = on;
+  glancePointOverride = null;   // a fresh entry re-infers from the schedule
+  localStorage.setItem('whw.glance', on ? '1' : '0');
+  document.getElementById('glance').textContent = on ? 'Detail' : 'Glance';
+  // Glance always concerns today; leaving it returns you to the same day.
+  if (on) selected = defaultDayIndex();
+  render();
+}
 
 // 'idle' | 'fetching' | 'failed'. Drives the banner and the Refresh button so a
 // tap is always visibly acknowledged, even on a connection that never answers.
@@ -516,6 +673,19 @@ function renderStatus() {
 function render() {
   renderStatus();
 
+  document.body.classList.toggle('glance-mode', glanceMode);
+  if (glanceMode) {
+    document.getElementById('tabs').innerHTML = '';
+    document.getElementById('cards').innerHTML = renderGlance();
+    document.getElementById('gexit').addEventListener('click', () => setGlance(false));
+    document.getElementById('gloc').addEventListener('click', () => {
+      glancePointOverride = (glancePointOverride ?? 0) + 1;
+      render();
+    });
+    window.scrollTo({ top: 0 });
+    return;
+  }
+
   const today = todayInScotland();
   document.getElementById('tabs').innerHTML = DAYS.map((d, i) => {
     const cls = [
@@ -548,6 +718,7 @@ function wire() {
   });
 
   document.getElementById('contrast').addEventListener('click', () => applyTheme(true));
+  document.getElementById('glance').addEventListener('click', () => setGlance(!glanceMode));
 
   window.addEventListener('online', () => refresh({ force: true }));
   document.addEventListener('visibilitychange', () => {
@@ -581,8 +752,13 @@ function boot() {
   if (localStorage.getItem('whw.theme') === 'dusk') document.body.classList.add('dusk');
   applyTheme(false);
 
-  const q = Number(new URLSearchParams(location.search).get('day'));
+  const params = new URLSearchParams(location.search);
+  const q = Number(params.get('day'));
   if (q >= 1 && q <= DAYS.length) selected = q - 1;
+
+  // ?glance=1 lets a second home screen icon open straight into glance mode.
+  glanceMode = params.get('glance') === '1' || localStorage.getItem('whw.glance') === '1';
+  document.getElementById('glance').textContent = glanceMode ? 'Detail' : 'Glance';
 
   // No baked-in fallback data: a PWA cannot be installed without a network in
   // the first place, so a first launch always has connectivity to fetch live.

@@ -219,6 +219,76 @@ svg.th.off { opacity: .25; }
 .exposed .nums i { font-style: normal; font-weight: 400; font-size: 11px; color: var(--ink-mute); }
 
 footer { text-align: center; padding: 18px 16px 30px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-mute); }
+
+/* ---- glance mode -------------------------------------------------------
+   One screen, arm's length, no glasses, one hand. Everything here is sized to
+   be read without focusing. Contrast is already 15.66:1 in the default palette,
+   so the work is type size, not colour. */
+body.glance-mode header.top,
+body.glance-mode footer { display: none; }
+body.glance-mode #tabs { display: none; }
+body.glance-mode #status { font-size: 15px; padding: 12px 14px; }
+body.glance-mode #status button { font-size: 12px; padding: 7px 10px; min-height: 40px; }
+
+.glance { padding: 8px 0 0; text-align: center; }
+
+/* Location: large, and obviously tappable, because a wrong guess must be
+   correctable without hunting for a control. */
+.gloc {
+  display: block; width: 100%; background: none; border: 0;
+  color: var(--ink-strong); font-family: Georgia, serif; font-weight: 700;
+  font-size: 27px; letter-spacing: .01em; padding: 6px 0 2px; line-height: 1.1;
+}
+.gcyc {
+  display: block; font-family: system-ui, sans-serif; font-size: 10px;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--ink-mute);
+  font-weight: 700; margin-top: 3px;
+}
+
+/* Departure-board headline: small label, enormous value. */
+.ghl {
+  margin: 14px 0 0; font-size: 21px; font-weight: 700;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--ink-mute);
+}
+.ghv {
+  margin: 0; font-size: 64px; line-height: 1.02; font-weight: 700;
+  letter-spacing: -.02em; color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 340px) { .ghv { font-size: 54px; } }
+
+/* 4-hour rain strip at 15-minute resolution. Solid tone steps, not hatch —
+   hatch turns to mush at 22px. */
+.strip { display: flex; gap: 2px; margin: 18px 0 0; }
+.strip .q { flex: 1; height: 46px; border: 1px solid var(--rule); border-radius: 1px; }
+.strip .q.t0 { background: transparent; }
+.strip .q.t1 { background: rgba(16,38,26,.32); }
+.strip .q.t2 { background: var(--ink); border-color: var(--ink); }
+.strip.ticks { margin: 5px 0 0; gap: 2px; }
+.strip .qt {
+  flex: 1; font-size: 11px; font-weight: 700; font-style: normal;
+  color: var(--ink-mute); text-align: left; letter-spacing: .02em;
+}
+
+/* Three supporting values. */
+.gvals { display: flex; margin: 22px 0 0; border-top: 2px solid var(--rule); }
+.gv { flex: 1; padding: 12px 2px 4px; }
+.gv + .gv { border-left: 1px solid var(--rule); }
+.gvl {
+  display: block; font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  font-weight: 700; color: var(--ink-mute); margin-bottom: 2px;
+}
+.gvv { display: block; font-size: 31px; font-weight: 700; color: var(--ink-strong); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.gvv b { font-size: 15px; font-weight: 600; color: var(--ink-mute); margin-left: 1px; }
+
+/* Exit at the BOTTOM, where a thumb reaches one-handed. */
+.gexit {
+  display: block; width: 100%; margin: 26px 0 0;
+  background: var(--ink); color: var(--ground); border: 0; border-radius: 3px;
+  font: 700 15px/1 system-ui, sans-serif; letter-spacing: .2em; text-transform: uppercase;
+  padding: 20px 0; min-height: 60px;
+}
+.gexit:active { opacity: .8; }
 </style>
 </head>
 <body>
@@ -241,6 +311,7 @@ footer { text-align: center; padding: 18px 16px 30px; font-size: 11px; letter-sp
 <p id="status" class="red">
   <span class="dot"></span>
   <span class="txt">Loading…</span>
+  <button id="glance" title="Large, rain-focused view for on the move">Glance</button>
   <button id="contrast" title="Switch to the deeper shirt palette">Moon</button>
   <button id="refresh">Refresh</button>
 </p>
