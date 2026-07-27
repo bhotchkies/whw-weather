@@ -282,13 +282,16 @@ function verdict(hours) {
 
 // ------------------------------------------------------------------- rendering
 
-// Head + tapered abdomen (fills solid when "on"), proboscis + swept wings +
-// two pairs of trailing legs (stays outline-only, same technique the old
-// thistle glyph used for its spike lines — open line segments never gain a
-// visible fill regardless of state).
+// Top-down beetle silhouette: oval body (fills solid when "on") with a centre
+// dorsal split line and three pairs of short leg-stubs. Earlier attempts drew
+// a head-and-limbs figure that reliably read as a stick person rather than a
+// bug — a vertical body with two limb-pairs branching outward at "shoulder"
+// and "hip" height is exactly the schema people parse as humanoid, no matter
+// how the individual strokes are angled. A rounded top-down shape with short
+// legs tucked close to the body breaks that reading entirely.
 const midgeGlyph = (filled) => `<svg class="mg ${filled ? 'on' : 'off'}" viewBox="0 0 12 16" aria-hidden="true">
-<path d="M5,2.4a1,1 0 1,0 2,0a1,1 0 1,0 -2,0 M6 3.4C7.1 3.4 7.6 5.6 7.3 8.2C7 10.8 6.5 13 6 14.6C5.5 13 5 10.8 4.7 8.2C4.4 5.6 4.9 3.4 6 3.4Z"/>
-<path d="M6 1.4L6 0.3M5 5.6C3.4 4.7 1.6 5 1.1 6.3C2.6 6.5 4.2 6.3 5.4 6.5M7 5.6C8.6 4.7 10.4 5 10.9 6.3C9.4 6.5 7.8 6.3 6.6 6.5M5.2 9L2 9.6L1.2 11.4M6.8 9L10 9.6L10.8 11.4M5.4 11.8L3.4 13L2.8 14.8M6.6 11.8L8.6 13L9.2 14.8"/></svg>`;
+<path d="M6 1.5C8 1.5 9 3.5 9 6L9 11C9 13.5 8 14.5 6 14.5C4 14.5 3 13.5 3 11L3 6C3 3.5 4 1.5 6 1.5Z"/>
+<path d="M6 2.3L6 14.2M3 5L1.7 4.5M9 5L10.3 4.5M3 8.3L1.6 8.3M9 8.3L10.4 8.3M3 11.6L1.7 12.1M9 11.6L10.3 12.1"/></svg>`;
 
 function midgeCell(score) {
   if (score == null) return '<span class="na">—</span>';
