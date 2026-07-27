@@ -468,7 +468,21 @@ function boot() {
   refresh({ force: true });
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    // If a worker was already controlling this page and a new one takes over,
+    // the code on screen is stale — reload once so nobody walks around on an
+    // old version. Guarded so the very first install does not reload.
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      location.reload();
+    });
+
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      reg.update();
+      setInterval(() => reg.update(), 60 * 60 * 1000);
+    }).catch(() => {});
   }
 }
 
