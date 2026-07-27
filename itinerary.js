@@ -42,7 +42,7 @@ export const DAYS = [
     date: '2026-07-31', label: 'Arrival',
     from: 'glasgow', mid: null, to: 'milngavie',
     arrive: '16:15',
-    note: 'Land GLA 16:15, transfer to Milngavie. Dinner 18:45.',
+    note: 'Land GLA 4:15 PM, transfer to Milngavie. Dinner 6:45 PM.',
     lodging: 'Premier Inn, Milngavie',
     travelDay: true,
   },
@@ -52,7 +52,7 @@ export const DAYS = [
     miles: 12.5, ascent: 961, departBy: '09:00', estLow: 5.5, estHigh: 6.5,
     lunch: { kind: 'inn', place: 'Dumgoyne', note: 'no reservation' },
     lodging: 'Kip in the Kirk, Drymen',
-    note: 'Bags out 08:00. Gentle farmland and forest.',
+    note: 'Bags out 8:00 AM. Gentle farmland and forest.',
     exposed: [],
   },
   {
@@ -79,7 +79,7 @@ export const DAYS = [
     miles: 11.9, ascent: 1739, departBy: '09:00', estLow: 6, estHigh: 7,
     lunch: { kind: 'packed', place: 'Crianlarich high point' },
     lodging: 'By The Way, Tyndrum',
-    note: 'Up Glen Falloch. Real Food Cafe 17:00–17:15.',
+    note: 'Up Glen Falloch. Real Food Cafe 5:00–5:15 PM.',
     exposed: [],
   },
   {
@@ -88,7 +88,7 @@ export const DAYS = [
     miles: 9.1, ascent: 1020, departBy: '09:30', estLow: 4.5, estHigh: 5,
     lunch: { kind: 'booked', place: 'Bridge of Orchy Hotel', time: '13:00' },
     lodging: 'Inveroran Hotel',
-    note: 'Short day; the 13:00 lunch at mile 7 sets the pace. Last dinner seating 18:15.',
+    note: 'Short day; the 1 PM lunch at mile 7 sets the pace. Last dinner seating 6:15 PM.',
     exposed: [],
   },
   {
@@ -113,7 +113,7 @@ export const DAYS = [
   {
     date: '2026-08-08', label: 'Day 8',
     from: 'fortwilliam', mid: null, to: 'glasgow',
-    note: 'Seal Island cruise 10:30 (wind matters on Loch Linnhe). Bus to Glasgow 15:30.',
+    note: 'Seal Island cruise 10:30 AM (wind matters on Loch Linnhe). Bus to Glasgow 3:30 PM.',
     lodging: 'Premier Inn, Glasgow Airport',
     travelDay: true,
     marine: true,

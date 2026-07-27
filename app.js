@@ -164,10 +164,21 @@ function temp(c) {
   return `<span class="t-f">${f(c)}°</span><span class="t-c">${Math.round(c)}C</span>`;
 }
 
-function hhmm(h) {
-  const H = Math.floor(h);
-  const M = Math.round((h - H) * 60);
-  return `${String(H).padStart(2, '0')}:${String(M % 60).padStart(2, '0')}`;
+// Times are stored as 24h and only converted for display, so the arrival and
+// exposed-window arithmetic never has to parse an AM/PM string back out.
+function ampm(h) {
+  const total = Math.round(h * 60);
+  const H = Math.floor(total / 60) % 24;
+  const M = total % 60;
+  const suffix = H < 12 ? 'AM' : 'PM';
+  const h12 = H % 12 || 12;
+  return M ? `${h12}:${String(M).padStart(2, '0')} ${suffix}` : `${h12} ${suffix}`;
+}
+
+// Convert an "HH:MM" field from the itinerary for display.
+function clock(hhmmStr) {
+  const [H, M] = hhmmStr.split(':').map(Number);
+  return ampm(H + M / 60);
 }
 
 // Rain tiers. The headline windows use RAIN; DRIZZLE is shown but reads as damp.
@@ -215,7 +226,7 @@ function verdict(hours) {
     const src = real.length ? real : wins;
     parts.push(src.slice(0, 2).map((w) => {
       const p = avgProb(w.probs);
-      return `${TIER_WORD[w.tier]} ${hhmm(w.start)}–${hhmm(w.end)}${p != null ? ` (${p}%)` : ''}`;
+      return `${TIER_WORD[w.tier]} ${ampm(w.start)}–${ampm(w.end)}${p != null ? ` (${p}%)` : ''}`;
     }).join(', '));
   }
 
@@ -257,7 +268,7 @@ function hourRows(hours, { highlight = [] } = {}) {
       const gust = h.gustMph != null && h.gustMph - (h.windMph ?? 0) > 8
         ? `<i>g${Math.round(h.gustMph)}</i>` : '';
       return `<tr${hot}>
-        <td class="hr">${String(h.hour).padStart(2, '0')}</td>
+        <td class="hr">${h.hour % 12 || 12}<span class="ap">${h.hour < 12 ? 'am' : 'pm'}</span></td>
         <td>${temp(h.tempC)}</td>
         <td>${rainCell(h)}</td>
         <td class="wind">${h.windMph == null ? '—' : Math.round(h.windMph)}${gust}</td>
@@ -307,7 +318,7 @@ function exposedBlocks(day) {
     return `<section class="exposed">
       <h4>${seg.name} <em>exposed · no shelter</em></h4>
       <p class="nums">
-        <span>~${hhmm(from)}–${hhmm(to)}</span>
+        <span>~${ampm(from)}–${ampm(to)}</span>
         <span>feels ${feels.length ? temp(Math.min(...feels)) : '—'}</span>
         <span>wind ${Math.round(wind)}<i> gust ${Math.round(gust)}</i> mph</span>
         <span>rain ${rain.toFixed(1)} mm<i> total</i></span>
@@ -321,11 +332,11 @@ function dayCard(day) {
   const meta = [];
   if (day.miles) meta.push(`${day.miles} mi`);
   if (day.ascent) meta.push(`${day.ascent.toLocaleString()} ft`);
-  if (day.departBy) meta.push(`depart ${day.departBy}`);
+  if (day.departBy) meta.push(`depart ${clock(day.departBy)}`);
   if (band) {
     meta.push(band.low === band.high
-      ? `arrive ~${hhmm(band.low)}`
-      : `arrive ${hhmm(band.low)}–${hhmm(band.high)}`);
+      ? `arrive ~${ampm(band.low)}`
+      : `arrive ${ampm(band.low)}–${ampm(band.high)}`);
   }
 
   const from = LOC[day.from], to = LOC[day.to];
@@ -342,7 +353,7 @@ function dayCard(day) {
 
     const lunchLine = day.lunch
       ? `<p class="lunch">${day.lunch.kind === 'booked'
-          ? `Booked ${day.lunch.time} · ${day.lunch.place}`
+          ? `Booked ${clock(day.lunch.time)} · ${day.lunch.place}`
           : `${day.lunch.kind === 'packed' ? 'Packed lunch' : 'Lunch'} · ${day.lunch.place}${day.lunch.note ? ` (${day.lunch.note})` : ''}`}</p>`
       : '';
 
