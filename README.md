@@ -13,12 +13,15 @@ This is a web page that behaves like an app. **It must be opened once on wifi
 before the trip** — that is when it saves itself to the phone. A phone that has
 never opened it will show nothing on Rannoch Moor.
 
-### iPhone / iPad — must use Safari
+### iPhone / iPad
 
-Chrome on iOS cannot install web apps. Use Safari.
+Works in Safari or Chrome — both use the same Share-button flow, since iOS
+requires every browser to run on the same engine underneath. Safari is the
+one guaranteed to work on any iOS version; Chrome supports it from iOS 17.
 
-1. Open the link in **Safari**.
-2. Tap the **Share** button (square with an arrow, bottom centre).
+1. Open the link in Safari or Chrome.
+2. Tap the **Share** button (square with an arrow — bottom centre in Safari,
+   in the address bar in Chrome).
 3. Scroll down, tap **Add to Home Screen**.
 4. Tap **Add**.
 5. Open it once from the home screen icon so it caches.

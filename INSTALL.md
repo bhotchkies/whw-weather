@@ -11,17 +11,21 @@ mobile signal, which matters on 6 August — there is none on Rannoch Moor.
 
 ---
 
-## iPhone / iPad — you must use Safari
+## iPhone / iPad
 
-Chrome on iPhone cannot install web apps. This only works in **Safari**.
+Works in **Safari** or **Chrome** — both use the same Share-button flow, since
+Apple requires every iOS browser to run on the same engine underneath.
 
-1. Open **https://bhotchkies.github.io/whw-weather/** in **Safari**.
-2. Tap the **Share** button — the square with an arrow pointing up, at the bottom
-   of the screen.
+1. Open **https://bhotchkies.github.io/whw-weather/** in Safari or Chrome.
+2. Tap the **Share** button — the square with an arrow pointing up. In Safari
+   it's at the bottom of the screen; in Chrome it's in the address bar.
 3. Scroll down the list and tap **Add to Home Screen**.
 4. Tap **Add**, top right.
 5. **Open it once from the new home screen icon.** This is the step that saves it
    for offline use. Don't skip it.
+
+(If your phone is on an old iOS version and Chrome doesn't offer this option,
+use Safari instead — that's the one guaranteed to work on any version.)
 
 ## Android
 
