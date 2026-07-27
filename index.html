@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>WHW Weather · Troop 600</title>
 <link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#9C8E6D">
+<meta name="theme-color" content="#EFE8D6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="WHW Weather">
@@ -15,20 +15,11 @@
 <style>
 /* Palette lifted from the troop shirt: deep forest green ink on khaki ground.
    Data that gets acted on is rendered in the strong ink for contrast; the
-   decorative layer keeps the low-contrast shirt feel. */
+   decorative layer keeps the low-contrast shirt feel.
+
+   The high-contrast "bright" variant is the DEFAULT — it is the one that stays
+   readable in sun and rain. The Moon button drops to the deeper shirt khaki. */
 :root {
-  --ground: #9C8E6D;
-  --ground-2: #93855F;
-  --ink: #1C3A24;
-  --ink-strong: #0C1F12;
-  --ink-mute: rgba(28,58,36,.60);
-  --rule: rgba(28,58,36,.30);
-  --panel: rgba(28,58,36,.055);
-  --green: #24512F;
-  --amber: #7A5A16;
-  --red: #6E2318;
-}
-body.bright {
   --ground: #EFE8D6;
   --ground-2: #E5DCC5;
   --ink: #10261A;
@@ -36,6 +27,18 @@ body.bright {
   --ink-mute: rgba(16,38,26,.72);
   --rule: rgba(16,38,26,.38);
   --panel: rgba(16,38,26,.06);
+  --green: #24512F;
+  --amber: #7A5A16;
+  --red: #6E2318;
+}
+body.dusk {
+  --ground: #9C8E6D;
+  --ground-2: #93855F;
+  --ink: #1C3A24;
+  --ink-strong: #0C1F12;
+  --ink-mute: rgba(28,58,36,.60);
+  --rule: rgba(28,58,36,.30);
+  --panel: rgba(28,58,36,.055);
 }
 
 * { box-sizing: border-box; }
@@ -96,9 +99,27 @@ header.top .sub { margin: 3px 0 0; font-size: 12px; letter-spacing: .18em; text-
   font: inherit; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
   background: none; border: 1px solid var(--rule); color: var(--ink);
   padding: 5px 9px; border-radius: 2px; min-height: 32px;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
 }
-body[data-net="fetching"] #status .dot { animation: pulse 1s infinite; }
-@keyframes pulse { 50% { opacity: .25; } }
+#status button:active { background: var(--panel); }
+#status button[disabled] { opacity: .75; }
+#refresh.busy { border-color: var(--ink); }
+#refresh.done { border-color: var(--green); color: var(--green); }
+
+/* Spinner so a tap is visibly doing something even on a slow connection. */
+.spin {
+  width: 11px; height: 11px; flex: none; border-radius: 50%;
+  border: 2px solid var(--rule); border-top-color: var(--ink);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#status.busy .dot { animation: pulse .9s infinite; }
+@keyframes pulse { 50% { opacity: .2; } }
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation-duration: 2s; }
+  #status.busy .dot { animation: none; }
+}
 
 /* ---- day tabs: tap targets, not swipe (edge swipe is browser-back on iOS) */
 #tabs {
@@ -204,7 +225,7 @@ footer { text-align: center; padding: 18px 16px 30px; font-size: 11px; letter-sp
 <p id="status" class="red">
   <span class="dot"></span>
   <span class="txt">Loading…</span>
-  <button id="contrast" title="High contrast for bright sun">Sun</button>
+  <button id="contrast" title="Switch to the deeper shirt palette">Moon</button>
   <button id="refresh">Refresh</button>
 </p>
 

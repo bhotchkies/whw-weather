@@ -8,6 +8,7 @@ import { midgeScore, midgeBand } from './midge.js';
 const CACHE_KEY = 'whw.forecast.v2';
 const REFRESH_THROTTLE_MS = 15 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
+const FLASH_MS = 1800;
 const TZ = 'Europe/London';
 
 // UKMO seamless is the model we act on; best_match supplies rain probability
@@ -135,7 +136,8 @@ async function refresh({ force = false } = {}) {
 
   inFlight = true;
   lastAttempt = Date.now();
-  setStatus('fetching');
+  netState = 'fetching';
+  renderStatus();
 
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
@@ -145,9 +147,15 @@ async function refresh({ force = false } = {}) {
     const raw = await res.json();
     saveCache(raw);
     MODEL = { fetchedAt: Date.now(), byLocation: normalise(raw) };
+    netState = 'idle';
+    // Hold a visible confirmation briefly, otherwise a fast refresh looks
+    // identical to nothing having happened.
+    flashUntil = Date.now() + FLASH_MS;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(renderStatus, FLASH_MS + 100);
     render();
   } catch (e) {
-    setStatus('failed');
+    netState = 'failed';
     render();
   } finally {
     clearTimeout(timer);
@@ -396,9 +404,11 @@ function defaultDayIndex() {
 
 let selected = defaultDayIndex();
 
-function setStatus(state) {
-  document.body.dataset.net = state;
-}
+// 'idle' | 'fetching' | 'failed'. Drives the banner and the Refresh button so a
+// tap is always visibly acknowledged, even on a connection that never answers.
+let netState = 'idle';
+let flashUntil = 0;
+let flashTimer = null;
 
 function staleness() {
   if (!MODEL) return { cls: 'red', text: 'No data yet — connect and refresh' };
@@ -411,11 +421,48 @@ function staleness() {
   return { cls: 'red', text: `STALE — ${hrs} h old${off}` };
 }
 
-function render() {
-  const s = staleness();
+function renderStatus() {
   const bar = document.getElementById('status');
+  const btn = document.getElementById('refresh');
+  const txt = bar.querySelector('.txt');
+  const s = staleness();
+
+  btn.classList.remove('busy', 'done');
+
+  if (netState === 'fetching') {
+    bar.className = 'busy';
+    txt.textContent = 'Refreshing…';
+    btn.innerHTML = '<span class="spin"></span>Updating';
+    btn.disabled = true;
+    return;
+  }
+
+  btn.disabled = false;
+
+  if (netState === 'failed') {
+    bar.className = 'red';
+    // Always keep the age of the data visible — that is the thing that matters,
+    // not the fact that one attempt failed.
+    txt.textContent = navigator.onLine
+      ? `Refresh failed · ${s.text}`
+      : `No signal · ${s.text}`;
+    btn.textContent = 'Retry';
+    return;
+  }
+
   bar.className = s.cls;
-  bar.querySelector('.txt').textContent = s.text;
+  txt.textContent = s.text;
+
+  if (Date.now() < flashUntil) {
+    btn.textContent = 'Updated ✓';
+    btn.classList.add('done');
+  } else {
+    btn.textContent = 'Refresh';
+  }
+}
+
+function render() {
+  renderStatus();
 
   const today = todayInScotland();
   document.getElementById('tabs').innerHTML = DAYS.map((d, i) => {
@@ -440,12 +487,14 @@ function wire() {
     render();
   });
 
-  document.getElementById('refresh').addEventListener('click', () => refresh({ force: true }));
-
-  document.getElementById('contrast').addEventListener('click', () => {
-    const on = document.body.classList.toggle('bright');
-    localStorage.setItem('whw.bright', on ? '1' : '0');
+  document.getElementById('refresh').addEventListener('click', () => {
+    if (inFlight) return;
+    // Immediate physical acknowledgement on Android; iOS ignores it silently.
+    if (navigator.vibrate) navigator.vibrate(12);
+    refresh({ force: true });
   });
+
+  document.getElementById('contrast').addEventListener('click', () => applyTheme(true));
 
   window.addEventListener('online', () => refresh({ force: true }));
   document.addEventListener('visibilitychange', () => {
@@ -453,8 +502,25 @@ function wire() {
   });
 }
 
+// High contrast is the default; 'dusk' is the deeper shirt khaki. Called with no
+// argument from the button to toggle, and once at boot to restore the choice.
+const GROUND = { bright: '#EFE8D6', dusk: '#9C8E6D' };
+
+function applyTheme(toggle = false) {
+  const body = document.body;
+  if (toggle) body.classList.toggle('dusk');
+  const dusk = body.classList.contains('dusk');
+
+  localStorage.setItem('whw.theme', dusk ? 'dusk' : 'bright');
+  // The button names where you are going, not where you are.
+  document.getElementById('contrast').textContent = dusk ? 'Sun' : 'Moon';
+  document.querySelector('meta[name="theme-color"]')
+    .setAttribute('content', dusk ? GROUND.dusk : GROUND.bright);
+}
+
 function boot() {
-  if (localStorage.getItem('whw.bright') === '1') document.body.classList.add('bright');
+  if (localStorage.getItem('whw.theme') === 'dusk') document.body.classList.add('dusk');
+  applyTheme(false);
 
   const q = Number(new URLSearchParams(location.search).get('day'));
   if (q >= 1 && q <= DAYS.length) selected = q - 1;

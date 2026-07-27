@@ -49,8 +49,13 @@ forecast on screen may be a day out of date. It never hides.
   when the group will be there. They do not tell you what to do.
 - Days marked **outlook** are beyond the high-resolution forecast range. Treat
   them as a rough steer, not a plan.
-- **Sun** button raises the contrast for bright light. **Refresh** forces an
-  update when you spot a bar of signal.
+- **Moon** button switches to the deeper shirt-khaki palette; **Sun** switches
+  back. High contrast is the default because it is the one that stays readable
+  in sun and rain.
+- **Refresh** forces an update when you spot a bar of signal. It spins and reads
+  "Updating" while it works, then flashes "Updated ✓". If it can't reach the
+  network it says so and offers **Retry**, while still showing how old your data
+  is — that number matters more than the failed attempt.
 
 Temperatures are °F with °C beside them. Wind is mph, with gusts marked `g`.
 Rain is mm. All times are UK time, including for anyone watching from home.
