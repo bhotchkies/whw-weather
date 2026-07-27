@@ -450,7 +450,9 @@ function inferPoint(day, hourNow) {
     day.stops.forEach((s) => pts.push({ loc: s.loc, from: s.from }));
   } else {
     const band = arrivalBand(day);
-    if (!band) return [{ loc: day.to, from: 0 }];
+    // No band means no timed movement to place the group along: the day
+    // collapses to its single destination.
+    if (!band) return { points: [{ loc: day.to, from: 0 }], index: 0 };
     pts.push({ loc: day.from, from: band.depart });
     if (day.mid) pts.push({ loc: day.mid, from: band.depart + (band.high - band.depart) * 0.45 });
     pts.push({ loc: day.to, from: band.high - 0.5 });
