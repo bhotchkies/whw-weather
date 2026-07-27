@@ -461,6 +461,10 @@ function inferPoint(day, hourNow) {
 }
 
 // Quarter-hour slots for a location from `fromHour` onward on `date`.
+//
+// 15-minute data only runs ~48h ahead, so beyond that this falls back to the
+// hourly series expanded into quarters. The display stays identical; only the
+// resolution drops, and `coarse` says so.
 function quartersFrom(locId, date, fromHour, spanHours) {
   const all = MODEL?.quarters?.[locId] ?? [];
   const out = [];
@@ -470,7 +474,19 @@ function quartersFrom(locId, date, fromHour, spanHours) {
     out.push(q);
     if (out.length >= spanHours * 4) break;
   }
-  return out;
+  if (out.length) return { slots: out, coarse: false };
+
+  const hours = MODEL?.byLocation?.[locId]?.[date] ?? [];
+  const slots = [];
+  for (const h of hours) {
+    if (h.hour < Math.floor(fromHour)) continue;
+    const tier = rainTier(h.rainMm);
+    for (let k = 0; k < 4; k++) {
+      slots.push({ at: h.hour + k * 0.25, date, mm: (h.rainMm ?? 0) / 4, tier });
+    }
+    if (slots.length >= spanHours * 4) break;
+  }
+  return { slots, coarse: true };
 }
 
 // The next wet→dry or dry→wet flip. Returns null when nothing changes in range.
@@ -518,7 +534,8 @@ function renderGlance() {
     : (inferred.index ?? 0);
   const locId = points[idx].loc;
 
-  const slots = quartersFrom(locId, day.date, day.date === now.date ? hourNow : 0, GLANCE_SCAN_HOURS);
+  const startAt = day.date === now.date ? hourNow : (day.departBy ? Number(day.departBy.slice(0, 2)) : 8);
+  const { slots, coarse } = quartersFrom(locId, day.date, startAt, GLANCE_SCAN_HOURS);
   const head = glanceHeadline(slots);
 
   // Supporting values come from the hourly series — 15-min resolution only
@@ -536,6 +553,7 @@ function renderGlance() {
     <p class="ghl">${head.label}</p>
     <p class="ghv">${head.value}</p>
     ${glanceStrip(slots)}
+    ${slots.length && coarse ? '<p class="gnote">Hourly detail · 15-min resolution within 48 hrs</p>' : ''}
     <div class="gvals">
       ${glanceValue('Feels', feels)}
       ${glanceValue('Wind', wind)}
