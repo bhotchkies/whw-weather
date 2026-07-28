@@ -528,14 +528,26 @@ function geoChip(locId, date, travelDay) {
     + ` aria-label="Distance to ${LOC[locId].name}">${inner}</button>`;
 }
 
-// Glance mode's trigger: just the hill glyph, next to the place name, opening
-// the same popup as the block-header chip. No status text here — glance is
-// read at arm's length in three seconds, and a mileage that's wrong until you
-// tap it is worse than no mileage at all.
-function glanceHillButton(locId, date) {
-  if (Geo.anchorMile(locId) == null) return '';
-  return `<button class="geochip ghill" data-loc="${locId}" data-date="${date}"`
-    + ` aria-label="Trail distance to ${LOC[locId].name}">${HILL_ICON}</button>`;
+// The fourth glance value, alongside Feels / Wind / Midge — the arm's-length
+// screen is exactly where this number belongs.
+function glanceGeoValue(locId, date) {
+  const s = geoStatusFor(locId, date);
+  if (!s) return '';
+  const value = (!s.cache || !s.dist) ? 'Tap' : s.passed ? 'Passed' : milesStr(s.dist.totalMi);
+  return `<button class="gv geochip" data-loc="${locId}" data-date="${date}">`
+    + `<span class="gvl">${HILL_ICON}Dist</span><span class="gvv">${value}</span></button>`;
+}
+
+// The place a tap on the top-bar hill icon means: whichever of the selected
+// day's points the schedule guesses you're nearest to right now — the same
+// definition glance mode already uses. Deliberately ignores glance's own
+// point-cycling override; the top bar always means "the default guess",
+// available from any screen, not whatever glance was last cycled to.
+function nextWaypointFor(day) {
+  const hourNow = nowInScotland().hour + 0.01;
+  const inferred = inferPoint(day, hourNow);
+  const points = inferred.points ?? [{ loc: day.to }];
+  return points[inferred.index ?? 0].loc;
 }
 
 // milesStr/feetStr/accuracyStr live in geo.js so the unit rule (miles and feet
@@ -685,16 +697,18 @@ function renderGeoResult(locId, day, cache) {
 // from under whoever is reading.
 function refreshGeoChips(date) {
   document.querySelectorAll(`.geochip[data-date="${date}"]`).forEach((el) => {
-    // The glance trigger is icon-only and never shows a status — nothing to
-    // rewrite there.
-    if (el.classList.contains('ghill')) return;
     const locId = el.dataset.loc;
     const s = geoStatusFor(locId, date);
     if (!s) return;
+    if (el.classList.contains('gv')) {
+      const value = (!s.cache || !s.dist) ? 'Tap' : s.passed ? 'Passed' : milesStr(s.dist.totalMi);
+      el.innerHTML = `<span class="gvl">${HILL_ICON}Dist</span><span class="gvv">${value}</span>`;
+      return;
+    }
     el.innerHTML = (!s.cache || !s.dist)
-        ? `${HILL_ICON}<span class="gc-txt">locate</span>`
-        : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${s.passed ? 'passed' : milesStr(s.dist.totalMi)}</span>`
-          + `<span class="gc-age">${ageLabel(s.ageMin)}</span>`;
+      ? `${HILL_ICON}<span class="gc-txt">locate</span>`
+      : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${s.passed ? 'passed' : milesStr(s.dist.totalMi)}</span>`
+        + `<span class="gc-age">${ageLabel(s.ageMin)}</span>`;
   });
 }
 
@@ -825,12 +839,9 @@ function renderGlance() {
   const midge = h?.midge != null ? `${h.midge}<b>/10</b>` : '—';
 
   return `<div class="glance">
-    <p class="grow">
-      ${canCycle
-        ? `<button class="gloc" id="gloc">${LOC[locId].name}<span class="gcyc">tap to change</span></button>`
-        : `<span class="gloc">${LOC[locId].name}</span>`}
-      ${glanceHillButton(locId, day.date)}
-    </p>
+    ${canCycle
+      ? `<button class="gloc" id="gloc">${LOC[locId].name}<span class="gcyc">tap to change</span></button>`
+      : `<p class="gloc">${LOC[locId].name}</p>`}
     <p class="ghl">${head.label}</p>
     <p class="ghv">${head.value}</p>
     ${glanceStrip(slots)}
@@ -839,6 +850,7 @@ function renderGlance() {
       ${glanceValue('Feels', feels)}
       ${glanceValue('Wind', wind)}
       ${glanceValue('Midge', midge)}
+      ${glanceGeoValue(locId, day.date)}
     </div>
     <button class="gexit" id="gexit">Detail</button>
   </div>`;
@@ -1042,6 +1054,15 @@ function wire() {
 
   document.getElementById('contrast').addEventListener('click', () => applyTheme(true));
   document.getElementById('glance').addEventListener('click', () => setGlance(!glanceMode));
+
+  // Icon-only, available from any screen (day cards or glance) — always opens
+  // on the currently selected day's schedule-inferred "next" point, computed
+  // fresh at tap time rather than baked into static markup, since which point
+  // that is can change as the day goes on.
+  document.getElementById('geoTop').addEventListener('click', () => {
+    const day = DAYS[selected];
+    openGeoPopup(nextWaypointFor(day), day.date);
+  });
 
   // Delegated: chips are re-created on every render() (day cards) and are
   // rewritten in place by refreshGeoChips() otherwise, so a single listener on
