@@ -800,10 +800,9 @@ async function startMap(MapMod) {
   try {
     const RouteMod = await import('./route.js');
     mapController = await MapMod.open(document.getElementById('mapContainer'), {
-      route: RouteMod, locations: LOCATIONS, day: mapDay,
+      route: RouteMod, locations: LOCATIONS, day: mapDay, fix: mapFix,
     });
     status.innerHTML = '';
-    if (mapFix) mapController.updateFix(mapFix);
   } catch (e) {
     status.innerHTML = `<p>Map failed to open: ${e.message}</p>`;
   }

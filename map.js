@@ -258,6 +258,16 @@ const WAYPOINTS_SOURCE = 'whw-waypoints';
 const POSITION_SOURCE = 'whw-position';
 const RECOVERY_SOURCE = 'whw-recovery';
 
+const M_PER_MILE = 1609.344;
+const OFF_TRAIL_NOISE_M = 0.25 * M_PER_MILE;
+// Wider than OFF_TRAIL_NOISE_M (which just decides whether to draw a
+// recovery line at all) — this decides whether the map is worth auto-
+// centering on you in the first place, versus opening on the full-route
+// overview. Independent of geo.js's OFF_TRAIL_MAX_MI (5 mi, the "too far to
+// measure" cutoff for the distance popup) — a different question with a
+// different answer, decided by Blair on 2026-07-28.
+const AUTO_CENTER_MAX_MI = 2;
+
 // Route.js's flat [lat, lon, mi, ascFt, ...] array, reshaped once into a
 // GeoJSON LineString (lon/lat order) — this is the same polyline the
 // distance popup snaps against, just drawn instead of measured.
@@ -289,16 +299,30 @@ function emptyFC() {
 
 // ---------------------------------------------------------------------- open
 
-// Opens the map into `container` (a DOM element, sized by the caller). Returns
-// a controller with updateFix()/destroy() — nothing here calls Geo.locate()
-// itself; the caller (app.js) owns the one-shot fix and hands the result in,
-// exactly as the distance popup already does.
-export async function open(container, { route, locations, day }) {
+// Opens the map into `container` (a DOM element, sized by the caller).
+// `fix` is the last known position (geo.js's cache.last), or null/undefined
+// if there isn't one yet. Returns a controller with updateFix()/recenter()/
+// destroy() — nothing here calls Geo.locate() itself; the caller (app.js)
+// owns the one-shot fix and hands the result in, exactly as the distance
+// popup already does.
+//
+// Resolves only once the style has actually finished loading and every
+// source/layer exists — awaited by the caller before it's safe to call
+// updateFix(). An earlier version returned before that point, so the
+// caller's very first updateFix() call landed while map.getSource() still
+// returned undefined and silently did nothing: no dot, no recovery line,
+// on every open. Caught by testing, not by inspection — the failure mode
+// was total silence, nothing to see in the console.
+export async function open(container, { route, locations, day, fix }) {
   const status = await checkStatus();
   if (!status.downloaded) throw new Error('Map not downloaded');
 
   const glyphsUrl = await registerArchives();
   const maplibregl = window.maplibregl;
+
+  // Auto-center on the last fix only when it's close enough to the trail to
+  // be worth it — otherwise open on the familiar full-route overview.
+  const centerOnFix = fix && fix.offM <= AUTO_CENTER_MAX_MI * M_PER_MILE;
 
   const style = buildStyle();
   const map = new maplibregl.Map({
@@ -312,94 +336,110 @@ export async function open(container, { route, locations, day }) {
     // substitution moot.
     transformRequest: (url, resourceType) =>
       resourceType === 'Glyphs' ? { url: glyphsUrl } : { url },
-    center: [route.ROUTE[1], route.ROUTE[0]], // [lon, lat] of the first route point
-    zoom: 12,
+    center: centerOnFix ? [fix.lon, fix.lat] : [route.ROUTE[1], route.ROUTE[0]],
+    zoom: centerOnFix ? 15 : 12,
     attributionControl: { compact: true },
   });
+  // Pinch-zoom already works on the raw canvas; this is the on-screen
+  // affordance for a mouse — no compass, since the map never rotates.
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
-  map.on('load', () => {
-    map.addSource(TRAIL_SOURCE, { type: 'geojson', data: trailLineGeoJSON(route.ROUTE, route.ROUTE_STRIDE) });
-    map.addLayer({
-      id: 'trail-line', type: 'line', source: TRAIL_SOURCE,
-      paint: { 'line-color': '#24512F', 'line-width': 3 },
-    });
+  await new Promise((resolve) => {
+    map.on('load', () => {
+      map.addSource(TRAIL_SOURCE, { type: 'geojson', data: trailLineGeoJSON(route.ROUTE, route.ROUTE_STRIDE) });
+      map.addLayer({
+        id: 'trail-line', type: 'line', source: TRAIL_SOURCE,
+        paint: { 'line-color': '#24512F', 'line-width': 3 },
+      });
 
-    map.addSource(WAYPOINTS_SOURCE, {
-      type: 'geojson',
-      data: waypointsGeoJSON(locations, day.from, day.to),
-    });
-    map.addLayer({
-      id: 'waypoints', type: 'circle', source: WAYPOINTS_SOURCE,
-      paint: {
-        'circle-radius': ['case', ['==', ['get', 'today'], 1], 6, 4],
-        'circle-color': '#EFE8D6',
-        'circle-stroke-color': '#24512F',
-        'circle-stroke-width': 2,
-      },
-    });
-    map.addLayer({
-      id: 'waypoint-labels', type: 'symbol', source: WAYPOINTS_SOURCE,
-      layout: {
-        'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'],
-        'text-size': 12, 'text-offset': [0, 1.1], 'text-anchor': 'top',
-      },
-      paint: { 'text-color': '#10261A', 'text-halo-color': '#EFE8D6', 'text-halo-width': 1.5 },
-    });
+      map.addSource(WAYPOINTS_SOURCE, {
+        type: 'geojson',
+        data: waypointsGeoJSON(locations, day.from, day.to),
+      });
+      map.addLayer({
+        id: 'waypoints', type: 'circle', source: WAYPOINTS_SOURCE,
+        paint: {
+          'circle-radius': ['case', ['==', ['get', 'today'], 1], 6, 4],
+          'circle-color': '#EFE8D6',
+          'circle-stroke-color': '#24512F',
+          'circle-stroke-width': 2,
+        },
+      });
+      map.addLayer({
+        id: 'waypoint-labels', type: 'symbol', source: WAYPOINTS_SOURCE,
+        layout: {
+          'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'],
+          'text-size': 12, 'text-offset': [0, 1.1], 'text-anchor': 'top',
+        },
+        paint: { 'text-color': '#10261A', 'text-halo-color': '#EFE8D6', 'text-halo-width': 1.5 },
+      });
 
-    map.addSource(POSITION_SOURCE, { type: 'geojson', data: emptyFC() });
-    map.addLayer({
-      id: 'position-dot', type: 'circle', source: POSITION_SOURCE,
-      paint: { 'circle-radius': 7, 'circle-color': '#05120A', 'circle-stroke-color': '#EFE8D6', 'circle-stroke-width': 2 },
-    });
+      map.addSource(POSITION_SOURCE, { type: 'geojson', data: emptyFC() });
+      map.addLayer({
+        id: 'position-dot', type: 'circle', source: POSITION_SOURCE,
+        paint: { 'circle-radius': 7, 'circle-color': '#05120A', 'circle-stroke-color': '#EFE8D6', 'circle-stroke-width': 2 },
+      });
 
-    // Off-trail recovery line: only populated when updateFix() sees a real
-    // off-trail offset. Dashed and separately colored so it never reads as
-    // the trail itself.
-    map.addSource(RECOVERY_SOURCE, { type: 'geojson', data: emptyFC() });
-    map.addLayer({
-      id: 'recovery-line', type: 'line', source: RECOVERY_SOURCE,
-      paint: { 'line-color': '#6E2318', 'line-width': 2, 'line-dasharray': [2, 2] },
-    });
-    map.addLayer({
-      id: 'recovery-label', type: 'symbol', source: RECOVERY_SOURCE,
-      layout: {
-        'text-field': 'direct line — check the ground', 'text-font': ['Noto Sans Regular'],
-        'text-size': 11, 'symbol-placement': 'line-center',
-      },
-      paint: { 'text-color': '#6E2318', 'text-halo-color': '#EFE8D6', 'text-halo-width': 1.5 },
+      // Off-trail recovery line: only populated when updateFix() sees a real
+      // off-trail offset. Dashed and separately colored so it never reads as
+      // the trail itself.
+      map.addSource(RECOVERY_SOURCE, { type: 'geojson', data: emptyFC() });
+      map.addLayer({
+        id: 'recovery-line', type: 'line', source: RECOVERY_SOURCE,
+        paint: { 'line-color': '#6E2318', 'line-width': 2, 'line-dasharray': [2, 2] },
+      });
+      map.addLayer({
+        id: 'recovery-label', type: 'symbol', source: RECOVERY_SOURCE,
+        layout: {
+          'text-field': 'direct line — check the ground', 'text-font': ['Noto Sans Regular'],
+          'text-size': 11, 'symbol-placement': 'line-center',
+        },
+        paint: { 'text-color': '#6E2318', 'text-halo-color': '#EFE8D6', 'text-halo-width': 1.5 },
+      });
+
+      resolve();
     });
   });
 
   // Applies (or reapplies) a fix to the position dot and, when off-trail, the
-  // recovery marker + dashed line to the nearest trail point.
+  // recovery marker + dashed line to the nearest trail point. Safe to call
+  // any time after open() resolves.
   function updateFix(fix) {
-    if (!map.getSource(POSITION_SOURCE)) return; // style not loaded yet
     map.getSource(POSITION_SOURCE).setData({
       type: 'Feature', geometry: { type: 'Point', coordinates: [fix.lon, fix.lat] },
     });
+    map.getSource(RECOVERY_SOURCE).setData(
+      fix.offM > OFF_TRAIL_NOISE_M
+        ? { type: 'Feature', geometry: { type: 'LineString', coordinates: [[fix.lon, fix.lat], [fix.nearLon, fix.nearLat]] } }
+        : emptyFC()
+    );
+  }
 
-    const OFF_TRAIL_NOISE_M = 0.25 * 1609.344;
+  // Frames the view on a fix: fits the dot and the nearest trail point both
+  // in view when there's a recovery line to show, otherwise just centers
+  // tightly on the dot — used both for the initial auto-center and the
+  // Recenter button, so both behave the same way.
+  function frameOnFix(fix, { instant = false } = {}) {
     if (fix.offM > OFF_TRAIL_NOISE_M) {
-      map.getSource(RECOVERY_SOURCE).setData({
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: [[fix.lon, fix.lat], [fix.nearLon, fix.nearLat]],
-        },
-      });
+      const bounds = new maplibregl.LngLatBounds([fix.lon, fix.lat], [fix.lon, fix.lat]);
+      bounds.extend([fix.nearLon, fix.nearLat]);
+      map.fitBounds(bounds, { padding: 60, maxZoom: 16, animate: !instant });
+    } else if (instant) {
+      map.jumpTo({ center: [fix.lon, fix.lat], zoom: 15 });
     } else {
-      map.getSource(RECOVERY_SOURCE).setData(emptyFC());
+      map.flyTo({ center: [fix.lon, fix.lat], zoom: 15 });
     }
   }
 
-  function recenter(fix) {
-    map.flyTo({ center: [fix.lon, fix.lat], zoom: 15 });
+  if (fix) {
+    updateFix(fix);
+    if (centerOnFix) frameOnFix(fix, { instant: true });
   }
 
   return {
     map,
     updateFix,
-    recenter,
+    recenter: (fix) => frameOnFix(fix, { instant: false }),
     destroy() { map.remove(); },
   };
 }

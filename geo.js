@@ -275,6 +275,7 @@ export function etaHours(remainingMi, pace) {
 // ?acc= sets the reported accuracy in feet (default 30). Ignored unless both
 // lat and lon are present and numeric, so a stray ?lat= alone can't half-work.
 const LOCATE_OVERRIDE = (() => {
+  if (typeof location === 'undefined') return null; // no DOM (e.g. Node-based testing)
   const p = new URLSearchParams(location.search);
   const lat = Number(p.get('lat'));
   const lon = Number(p.get('lon'));
