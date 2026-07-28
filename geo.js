@@ -21,6 +21,14 @@ const FT_PER_M = 3.28084;
 // and gets shown as its own line.
 const OFF_TRAIL_NOISE_MI = 0.25;
 
+// Beyond this, snap()'s "nearest point on the trail" stops being trustworthy —
+// the local flat-earth projection it uses is only valid within a few hundred
+// km of Scotland, so a fix from actually testing the app at home (or a wild
+// GPS jump) can snap to an arbitrary point on the line rather than a genuinely
+// nearby one. No real hiking detour comes anywhere close to this — the
+// biggest known village detour (Balmaha) is under a mile.
+const OFF_TRAIL_MAX_MI = 5;
+
 // A pace outside this range is a bad fix (GPS jump) or a data-entry problem,
 // not a Scout troop's actual walking speed. Fall back to the planned pace.
 const PACE_MIN_MPH = 0.5;
@@ -125,11 +133,16 @@ export function anchorMile(locId) {
 export function distanceTo(fix, targetLocId) {
   const anchor = anchorMile(targetLocId);
   if (anchor == null) return null;
+  // Beyond OFF_TRAIL_MAX_MI the additive model breaks down: a huge off-trail
+  // leg can swamp a negative on-trail leg (destination "behind" the snapped
+  // point) and produce a nonsense positive total instead of tripping the
+  // "passed" check. Rather than trust the maths at that range, say so.
+  if (fix.offM > OFF_TRAIL_MAX_MI * M_PER_MILE) return { tooFar: true };
   const offTrailMi = fix.offM > OFF_TRAIL_NOISE_MI * M_PER_MILE
     ? fix.offM / M_PER_MILE
     : 0;
   const onTrailMi = anchor - fix.mi;
-  return { offTrailMi, onTrailMi, totalMi: offTrailMi + onTrailMi };
+  return { offTrailMi, onTrailMi, totalMi: offTrailMi + onTrailMi, tooFar: false };
 }
 
 // Ascent remaining to a point on today's leg, scaled from the GPX profile's

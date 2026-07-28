@@ -504,7 +504,10 @@ function geoStatusFor(locId, date) {
   const dist = Geo.distanceTo(cache.last, locId);
   if (!dist) return { cache };
   const ageMin = Math.max(0, Math.round((Date.now() - cache.last.t) / 60000));
-  return { cache, dist, ageMin, stale: ageMin > 90, passed: dist.totalMi <= -0.05 };
+  return {
+    cache, dist, ageMin, stale: ageMin > 90,
+    passed: !dist.tooFar && dist.totalMi <= -0.05,
+  };
 }
 
 function ageLabel(ageMin) {
@@ -516,13 +519,25 @@ function ageLabel(ageMin) {
 // The block-header chip. Suppressed on travel days (their heading already
 // carries a role like "Cruise" that a distance figure would crowd) and on any
 // day that is not today, per geoStatusFor above.
+// The chip/glance-value label for a given status: 'locate' before any fix,
+// 'too far' when the fix is too distant from the trail to trust (see
+// OFF_TRAIL_MAX_MI in geo.js — mainly a testing-from-home guard), 'passed'
+// past the target, otherwise the mileage itself.
+function geoLabel(s) {
+  if (!s.cache || !s.dist) return 'locate';
+  if (s.dist.tooFar) return 'too far';
+  if (s.passed) return 'passed';
+  return milesStr(s.dist.totalMi);
+}
+
 function geoChip(locId, date, travelDay) {
   if (travelDay) return '';
   const s = geoStatusFor(locId, date);
   if (!s) return '';
-  const inner = (!s.cache || !s.dist)
+  const label = geoLabel(s);
+  const inner = label === 'locate'
     ? `${HILL_ICON}<span class="gc-txt">locate</span>`
-    : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${s.passed ? 'passed' : milesStr(s.dist.totalMi)}</span>`
+    : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${label}</span>`
       + `<span class="gc-age">${ageLabel(s.ageMin)}</span>`;
   return ` <button class="geochip" data-loc="${locId}" data-date="${date}"`
     + ` aria-label="Distance to ${LOC[locId].name}">${inner}</button>`;
@@ -533,7 +548,8 @@ function geoChip(locId, date, travelDay) {
 function glanceGeoValue(locId, date) {
   const s = geoStatusFor(locId, date);
   if (!s) return '';
-  const value = (!s.cache || !s.dist) ? 'Tap' : s.passed ? 'Passed' : milesStr(s.dist.totalMi);
+  const label = geoLabel(s);
+  const value = { locate: 'Tap', 'too far': 'Too far', passed: 'Passed' }[label] ?? label;
   return `<button class="gv geochip" data-loc="${locId}" data-date="${date}">`
     + `<span class="gvl">${HILL_ICON}Dist</span><span class="gvv">${value}</span></button>`;
 }
@@ -641,26 +657,38 @@ function renderGeoResult(locId, day, cache) {
     return;
   }
 
-  const passed = dist.totalMi <= -0.05;
+  // Beyond OFF_TRAIL_MAX_MI (geo.js) the fix is too far from the trail for the
+  // additive off-trail + on-trail model to mean anything — the "nearest
+  // point" the flat-earth projection finds at that range is close to
+  // arbitrary, and a huge off-trail leg can swamp a negative on-trail one into
+  // a nonsense positive total instead of tripping "passed". Say so plainly
+  // rather than show a number that looks fine but isn't.
+  const tooFar = dist.tooFar;
+  const passed = !tooFar && dist.totalMi <= -0.05;
 
   const fromA = Geo.anchor(day.from);
   const toA = Geo.anchor(day.to);
   const targetA = Geo.anchor(locId);
-  const ascLeft = (!passed && fromA && toA && targetA)
+  const ascLeft = (!tooFar && !passed && fromA && toA && targetA)
     ? Geo.ascentRemaining(day, fix, fromA.ascFt, toA.ascFt, targetA.ascFt)
     : null;
 
   const pace = Geo.paceEstimate(day, cache);
-  const etaH = passed ? null : Geo.etaHours(dist.totalMi, pace);
+  const etaH = (!tooFar && !passed) ? Geo.etaHours(dist.totalMi, pace) : null;
   const etaStr = etaH != null ? ampm(hourOfLocal(fix.t) + etaH) : null;
   const paceNote = pace
     ? `${pace.mph.toFixed(1)} mph ${pace.source}${pace.sinceT ? ` since ${ampm(hourOfLocal(pace.sinceT))}` : ''}`
     : '';
 
+  // Independent of the target, so still shown even when the target itself is
+  // too far to measure — it's about progress since this morning, not distance
+  // to anywhere in particular.
   const doneToday = cache.base?.confirmed ? Math.max(0, fix.mi - cache.base.mi) : null;
 
-  const headline = passed ? `Passed ${loc.name}` : `${milesStr(dist.totalMi)} to go`;
-  const offLine = (!passed && dist.offTrailMi > 0)
+  const headline = tooFar
+    ? 'Too far from the trail to measure'
+    : passed ? `Passed ${loc.name}` : `${milesStr(dist.totalMi)} to go`;
+  const offLine = (!tooFar && !passed && dist.offTrailMi > 0)
     ? `<p class="geo-off">${milesStr(dist.offTrailMi)} off trail, straight-line`
       + `<br>+ ${milesStr(dist.onTrailMi)} on trail</p>`
     : '';
@@ -674,7 +702,9 @@ function renderGeoResult(locId, day, cache) {
     .filter((p) => p.locId !== locId && Geo.anchorMile(p.locId) != null)
     .map((p) => {
       const d = Geo.distanceTo(fix, p.locId);
-      if (!d || d.totalMi <= -0.05) return null;
+      if (!d) return null;
+      if (d.tooFar) return `<li><span>${LOC[p.locId].name}</span><span>Too far</span></li>`;
+      if (d.totalMi <= -0.05) return null;
       return `<li><span>${LOC[p.locId].name}</span><span>${milesStr(d.totalMi)}</span></li>`;
     })
     .filter(Boolean)
@@ -700,14 +730,15 @@ function refreshGeoChips(date) {
     const locId = el.dataset.loc;
     const s = geoStatusFor(locId, date);
     if (!s) return;
+    const label = geoLabel(s);
     if (el.classList.contains('gv')) {
-      const value = (!s.cache || !s.dist) ? 'Tap' : s.passed ? 'Passed' : milesStr(s.dist.totalMi);
+      const value = { locate: 'Tap', 'too far': 'Too far', passed: 'Passed' }[label] ?? label;
       el.innerHTML = `<span class="gvl">${HILL_ICON}Dist</span><span class="gvv">${value}</span>`;
       return;
     }
-    el.innerHTML = (!s.cache || !s.dist)
+    el.innerHTML = label === 'locate'
       ? `${HILL_ICON}<span class="gc-txt">locate</span>`
-      : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${s.passed ? 'passed' : milesStr(s.dist.totalMi)}</span>`
+      : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${label}</span>`
         + `<span class="gc-age">${ageLabel(s.ageMin)}</span>`;
   });
 }
