@@ -417,6 +417,9 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
   background: var(--ink); color: var(--ground);
   font-size: 12px; font-weight: 600;
 }
+/* Same fix as .map-screen above — display:flex here otherwise defeats the
+   hidden attribute completely, regardless of specificity. */
+.map-banner[hidden] { display: none; }
 .map-banner button {
   flex: none; background: var(--ground); color: var(--ink); border: 0; border-radius: 4px;
   font: 700 11px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
@@ -427,6 +430,12 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
   position: fixed; inset: 0; z-index: 40; background: var(--ground);
   display: flex; flex-direction: column;
 }
+/* Author-stylesheet `display` always beats the UA stylesheet's implicit
+   `[hidden] { display: none }` rule, regardless of selector specificity —
+   so setting `display: flex` above silently defeated the `hidden` attribute
+   entirely, covering the whole app the moment the page loaded, everywhere,
+   every time. This explicit override is what actually makes `hidden` work. */
+.map-screen[hidden] { display: none; }
 .map-container { flex: 1; position: relative; }
 /* MapLibre's own attribution control already satisfies the ODbL credit
    requirement — no extra markup needed here. */
