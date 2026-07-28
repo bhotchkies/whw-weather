@@ -36,7 +36,7 @@ const REBASE_MI = 0.25;
 
 export function milesStr(mi) {
   if (mi == null) return '—';
-  if (mi < 0.1) return `${Math.round(mi * 5280)} ft`;
+  if (mi < 0.25) return `${Math.round(mi * 5280)} ft`;
   return `${mi.toFixed(1)} mi`;
 }
 
