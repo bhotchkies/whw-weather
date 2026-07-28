@@ -1,0 +1,266 @@
+// Trail distance and pace from GPS. Kept separate from app.js on purpose: this
+// is the only file allowed to touch navigator.geolocation, so nothing in the
+// render path can ever request a fix by accident.
+//
+// Design constraints (see the trail-distance plan for the full reasoning):
+// - One-shot fixes only. Never watchPosition — that is the fast way to arrive
+//   at Kinlochleven with a dead phone.
+// - Everything displayed is miles and feet. Metres exist only inside the maths
+//   here; nothing metric should reach app.js's templates.
+// - Off-trail distance is always answerable (straight line + trail distance),
+//   never withheld.
+
+import { ROUTE, ROUTE_STRIDE, ROUTE_ANCHORS } from './route.js';
+
+const FIX_KEY = 'whw.fix';
+const M_PER_MILE = 1609.344;
+const FT_PER_M = 3.28084;
+
+// Below this, an off-trail reading is GPS noise (accuracy + a few strides at a
+// stile or a viewpoint), not a meaningful detour. Above it, the detour is real
+// and gets shown as its own line.
+const OFF_TRAIL_NOISE_MI = 0.25;
+
+// A pace outside this range is a bad fix (GPS jump) or a data-entry problem,
+// not a Scout troop's actual walking speed. Fall back to the planned pace.
+const PACE_MIN_MPH = 0.5;
+const PACE_MAX_MPH = 4.0;
+
+// How far a fix has to sit from the day's baseline before it counts as "we
+// actually left" rather than "still standing around at breakfast".
+const REBASE_MI = 0.25;
+
+// ------------------------------------------------------------------- units
+//
+// All display goes through these three. Nothing metric should reach a template.
+
+export function milesStr(mi) {
+  if (mi == null) return '—';
+  if (mi < 0.1) return `${Math.round(mi * 5280)} ft`;
+  return `${mi.toFixed(1)} mi`;
+}
+
+export function feetStr(ft) {
+  if (ft == null) return '—';
+  return `${Math.round(ft).toLocaleString('en-US')} ft`;
+}
+
+// Fix accuracy is always small enough to read as feet.
+export function accuracyStr(accM) {
+  if (accM == null) return '—';
+  return `±${Math.round(accM * FT_PER_M)} ft`;
+}
+
+// ------------------------------------------------------------------- snapping
+
+// Nearest point on the simplified route polyline to (lat, lon), by perpendicular
+// distance to each segment — the same projection and maths as the build step,
+// just against the already-simplified ROUTE rather than the raw GPX.
+const DEG = Math.PI / 180;
+const EARTH_R = 6371000;
+const MID_LAT = 56.4;
+const KX = EARTH_R * DEG * Math.cos(MID_LAT * DEG);
+const KY = EARTH_R * DEG;
+const project = (lat, lon) => [lon * KX, lat * KY];
+
+function pointAt(i) {
+  const o = i * ROUTE_STRIDE;
+  return { lat: ROUTE[o], lon: ROUTE[o + 1], mi: ROUTE[o + 2], ascFt: ROUTE[o + 3] };
+}
+
+const routeLen = ROUTE.length / ROUTE_STRIDE;
+
+// Returns the trail position nearest a GPS fix: cumulative miles and ascent
+// along the trail at that point, plus how far off the trail (in metres) the
+// fix itself was. The route is a simple out-and-back-free line with strictly
+// increasing mileage, so a plain scan over ~1,200 points is all this needs —
+// no spatial index, comfortably sub-millisecond.
+export function snap(lat, lon) {
+  const [px, py] = project(lat, lon);
+  let best = Infinity;
+  let bestMi = 0;
+  let bestAscFt = 0;
+
+  for (let i = 0; i < routeLen - 1; i++) {
+    const a = pointAt(i);
+    const b = pointAt(i + 1);
+    const [ax, ay] = project(a.lat, a.lon);
+    const [bx, by] = project(b.lat, b.lon);
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    let u = lenSq ? ((px - ax) * dx + (py - ay) * dy) / lenSq : 0;
+    u = Math.max(0, Math.min(1, u));
+    const cx = ax + u * dx;
+    const cy = ay + u * dy;
+    const d = Math.hypot(px - cx, py - cy);
+    if (d < best) {
+      best = d;
+      bestMi = a.mi + (b.mi - a.mi) * u;
+      bestAscFt = a.ascFt + (b.ascFt - a.ascFt) * u;
+    }
+  }
+  return { mi: bestMi, ascFt: bestAscFt, offM: best };
+}
+
+// The trail position of an itinerary stop — { mi, ascFt } — or null for stops
+// that are not on the trail at all (Glasgow Airport on the travel days).
+export function anchor(locId) {
+  return ROUTE_ANCHORS[locId] ?? null;
+}
+
+export function anchorMile(locId) {
+  return anchor(locId)?.mi ?? null;
+}
+
+// ------------------------------------------------------------- off-trail math
+
+// Distance to a destination, split into the off-trail hop (straight-line,
+// since the GPS fix's own offset from the trail says nothing about what's in
+// between) and the on-trail distance from there. Below the noise floor the
+// off-trail leg is dropped entirely rather than shown as a fake precision.
+//
+// `mi` may come out negative when the destination is behind you (already
+// passed it) — callers are expected to handle that themselves.
+export function distanceTo(fix, targetLocId) {
+  const anchor = anchorMile(targetLocId);
+  if (anchor == null) return null;
+  const offTrailMi = fix.offM > OFF_TRAIL_NOISE_MI * M_PER_MILE
+    ? fix.offM / M_PER_MILE
+    : 0;
+  const onTrailMi = anchor - fix.mi;
+  return { offTrailMi, onTrailMi, totalMi: offTrailMi + onTrailMi };
+}
+
+// Ascent remaining to a point on today's leg, scaled from the GPX profile's
+// *shape* onto the planning doc's authoritative total for the whole leg. The
+// smoothed GPX profile is only accurate to within ~3.5% for the whole route;
+// per leg it has been seen off by over 40% (GPS elevation noise does not
+// average out evenly over a shorter distance). Scaling means the number
+// always reconciles with the figure already printed on the day card, and the
+// profile only decides what fraction of it sits between here and the target.
+//
+// `dayFromAscFt`/`dayToAscFt` are the GPX ascent at the leg's official start
+// and end (day.from / day.to) — the normalising span. `targetAscFt` defaults
+// to the leg's end, so calling with just the leg bounds gives "climb left to
+// tonight's stop"; passing a third point's ascFt (e.g. Midway) gives "climb
+// left to lunch" using the same leg-wide scale.
+export function ascentRemaining(day, fix, dayFromAscFt, dayToAscFt, targetAscFt = dayToAscFt) {
+  if (!day.ascent || dayFromAscFt == null || dayToAscFt == null || targetAscFt == null) return null;
+  const legTotal = dayToAscFt - dayFromAscFt;
+  if (legTotal <= 0) return null;
+  const legRemaining = targetAscFt - fix.ascFt;
+  const fraction = Math.max(0, Math.min(1, legRemaining / legTotal));
+  return day.ascent * fraction;
+}
+
+// ------------------------------------------------------------------ fix cache
+//
+// One cache entry per day, holding the pace baseline and the latest fix. Not a
+// history — just enough to answer "how far" and "how fast" for today.
+
+function readCache() {
+  try {
+    const s = localStorage.getItem(FIX_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
+
+function writeCache(cache) {
+  try { localStorage.setItem(FIX_KEY, JSON.stringify(cache)); }
+  catch { /* quota — the fix just won't survive a reload */ }
+}
+
+// Returns the cache for `date`, or null if there is none yet or it belongs to
+// a different day (a new day always starts with a clean baseline).
+export function getFix(date) {
+  const c = readCache();
+  return c && c.date === date ? c : null;
+}
+
+// Records a new GPS fix for `date`. `snapped` is the result of snap(); `accM`
+// is the fix's own reported accuracy; `t` is Date.now().
+//
+// Baseline rebase logic: while unconfirmed, a new fix within REBASE_MI of the
+// current baseline replaces it outright — this is what discards a pre-departure
+// tap taken while still standing at breakfast. The first fix that lands
+// REBASE_MI or further from the baseline confirms it *at that fix* — the
+// moment movement is first detected becomes the pace baseline for the rest of
+// the day, per Blair's call on 2026-07-28.
+export function recordFix(date, snapped, accM, t) {
+  let cache = getFix(date);
+  const point = { mi: snapped.mi, t };
+
+  if (!cache) {
+    cache = { date, base: { ...point, confirmed: false }, last: null };
+  } else if (!cache.base.confirmed) {
+    const moved = Math.abs(point.mi - cache.base.mi) >= REBASE_MI;
+    cache.base = { ...point, confirmed: moved };
+  }
+
+  cache.last = { mi: snapped.mi, ascFt: snapped.ascFt, offM: snapped.offM, accM, t };
+  writeCache(cache);
+  return cache;
+}
+
+// ---------------------------------------------------------------------- pace
+
+// Measured pace from the day's confirmed baseline to the latest fix, including
+// any time spent stopped — deliberately, since the rest of the day will
+// include breaks too and a moving-average pace would promise an arrival the
+// group is not actually going to make.
+//
+// Falls back to the day's planned pace when there is no confirmed baseline yet,
+// the two fixes are too close together to measure meaningfully, or the result
+// falls outside a plausible walking speed (a bad GPS fix, not a fast Scout).
+export function paceEstimate(day, cache) {
+  const planned = day.miles && day.estHigh ? day.miles / day.estHigh : null;
+  const plannedResult = { mph: planned, source: 'planned', sinceT: null };
+  if (!planned) return null;
+  if (!cache?.base?.confirmed || !cache.last) return plannedResult;
+
+  const elapsedH = (cache.last.t - cache.base.t) / 3_600_000;
+  const coveredMi = cache.last.mi - cache.base.mi;
+  if (elapsedH < 1 / 60 || coveredMi <= 0) return plannedResult;
+
+  const mph = coveredMi / elapsedH;
+  if (mph < PACE_MIN_MPH || mph > PACE_MAX_MPH) return plannedResult;
+
+  return { mph, source: 'measured', sinceT: cache.base.t };
+}
+
+// ---------------------------------------------------------------------- ETA
+
+// hoursFromNow, given a distance still to cover and a pace estimate.
+export function etaHours(remainingMi, pace) {
+  if (!pace || remainingMi == null || remainingMi <= 0) return null;
+  return remainingMi / pace.mph;
+}
+
+// ------------------------------------------------------------------- locate
+
+// One geolocation fix. Rejects on permission denial, timeout, or any other
+// PositionError — callers decide how to surface that (the popup shows a plain
+// "couldn't get a fix" rather than a raw error code).
+//
+// enableHighAccuracy is correct here specifically *because* this is one-shot:
+// the battery cost of GPS is a function of how long it stays on, not how
+// precise the fix is, and a single high-accuracy read is done in seconds.
+export function locate() {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) {
+      reject(new Error('Geolocation not supported'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        accM: pos.coords.accuracy,
+        t: Date.now(),
+      }),
+      (err) => reject(err),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+}

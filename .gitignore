@@ -1,2 +1,7 @@
 .claude/
 __pycache__/
+
+# Build input for tools/build_route.js — 800 KB, and fully consumed into the
+# committed route.js. Not needed at runtime; re-download from AllTrails if
+# route.js ever needs regenerating.
+tools/west_highland_way.gpx

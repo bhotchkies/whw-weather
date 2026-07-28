@@ -60,6 +60,11 @@ forecast on screen may be a day out of date. It never hides.
   "Updating" while it works, then flashes "Updated ✓". If it can't reach the
   network it says so and offers **Retry**, while still showing how old your data
   is — that number matters more than the failed attempt.
+- The little **hill icon** next to a place name gets you a distance. It takes
+  one GPS fix, works with **no signal at all**, and switches your phone's GPS
+  straight back off afterward — nothing runs in the background between taps.
+  The number shown the rest of the time is whatever that last tap found,
+  labelled with how long ago it was taken.
 
 Temperatures are °F with °C beside them. Wind is mph, with gusts marked `g`.
 Rain is mm. All times are UK time, including for anyone watching from home.
@@ -76,6 +81,12 @@ Rain is mm. All times are UK time, including for anyone watching from home.
 - **Offline:** a service worker caches the page; forecast data is kept in
   `localStorage` with its timestamp. The network is always tried first, with an
   8-second timeout, and it falls back to the last good data.
+- **Distance:** the West Highland Way route, distilled from a public GPX track
+  into a small on-device polyline (`route.js`). A tap snaps your GPS fix onto
+  it and reports miles and feet of climb to go — no network involved. Ascent
+  is scaled to match the planning doc's per-day figures, since raw GPS
+  elevation is noisy; the printed mileage is always the doc's, live distance is
+  the only thing GPS drives.
 - A full refresh is about **110 KB** compressed — 16 days, hourly, for all 16
   locations, plus 15-minute precipitation for the next 48 hours. Roughly a third
   of a photo, so refreshing often costs almost nothing.
@@ -93,6 +104,8 @@ been dead weight in every phone's cache.
 | `app.js` | Fetch, cache, render |
 | `itinerary.js` | Route, stops, times — from the Daily tab of the planning doc |
 | `midge.js` | Midge index |
+| `geo.js` | GPS fix, trail snapping, pace and unit formatting |
+| `route.js` | Generated trail polyline — see `tools/build_route.js` |
 | `sw.js` | Offline cache |
 
 ---

@@ -4,6 +4,7 @@
 
 import { LOCATIONS, LOC, DAYS, PRONUNCIATIONS, PRONOUNCE_BY_ID } from './itinerary.js';
 import { midgeScore, midgeBand } from './midge.js';
+import * as Geo from './geo.js';
 
 const CACHE_KEY = 'whw.forecast.v2';
 const REFRESH_THROTTLE_MS = 15 * 60 * 1000;
@@ -337,12 +338,12 @@ function pronounced(locId) {
   return p ? ` <span class="pron">${p}</span>` : '';
 }
 
-function block(role, locId, date, from, to, extra = '') {
+function block(role, locId, date, from, to, extra = '', travelDay = false) {
   const loc = LOC[locId];
   const hours = slice(MODEL?.byLocation?.[locId], date, from, to);
   const outlook = hours.length && hours.every((h) => h.outlook);
   return `<section class="blk${outlook ? ' outlook' : ''}">
-    <h3><span class="role">${role}</span> ${loc.name}${pronounced(locId)}
+    <h3><span class="role">${role}</span> ${loc.name}${pronounced(locId)}${geoChip(locId, date, travelDay)}
       ${outlook ? '<em class="tag">outlook</em>' : ''}</h3>
     <p class="verdict">${verdict(hours)}</p>
     ${extra}
@@ -415,7 +416,7 @@ function dayCard(day) {
         ? numbersPanel(day.marine.at, day.date, day.marine.from, day.marine.to,
                        day.marine.name, 'open water · wind exposed')
         : '';
-      return block(s.role, s.loc, day.date, s.from, s.to, note + panel);
+      return block(s.role, s.loc, day.date, s.from, s.to, note + panel, true);
     }).join('');
   } else {
     const walkFrom = Math.floor(band.depart);
@@ -446,6 +447,254 @@ function dayCard(day) {
     </header>
     ${blocks}
   </article>`;
+}
+
+// ------------------------------------------------------------- trail distance
+//
+// GPS-derived "how far to go", read from the route polyline in route.js via
+// geo.js. Location is fetched exactly once per tap — never on render, never in
+// the background — and the result is cached in localStorage, so every header
+// chip below is a pure read of that cache. The hill glyph is the only thing
+// that ever calls Geo.locate().
+
+// Same house style as the other glyphs (beetle, sun, moon): a filled core
+// shape with thin stroke accents. currentColor rather than a fixed ink
+// variable, since this glyph appears inside several different text colours
+// (a muted chip, a faded stale chip, a glance value) and should always match.
+const HILL_ICON = `<svg class="hill" viewBox="0 0 14 12" aria-hidden="true">
+<path class="fill" d="M1 11L5.2 3.6L7 6.6L9.2 2.2L13 11Z"/>
+<path class="stroke" d="M9.2 2.2L8.1 4.4M5.2 3.6L4.3 5.3"/></svg>`;
+
+// Ordered stops for a day, independent of whether it is a walking day (Start /
+// Midway / End) or a travel day (whatever `stops` names them).
+function dayPoints(day) {
+  if (day.stops) return day.stops.map((s) => ({ role: s.role, locId: s.loc }));
+  const pts = [{ role: 'Start', locId: day.from }];
+  if (day.mid) pts.push({ role: 'Midway', locId: day.mid });
+  pts.push({ role: 'End', locId: day.to });
+  return pts;
+}
+
+// Fractional hour-of-day, Scotland time, for an arbitrary timestamp — used to
+// print when a fix was taken and to project an ETA from it. `nowInScotland()`
+// only ever answers for right now.
+function hourOfLocal(t) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date(t)).map((p) => [p.type, p.value])
+  );
+  return (Number(parts.hour) % 24) + Number(parts.minute) / 60;
+}
+
+// Everything the header chip and the glance value need to know about one
+// point, read purely from the cache — never touches GPS. Returns null when
+// the chip should not render at all (no anchor for this location, or the
+// day in question is not today — a cached fix from Tuesday means nothing on
+// Thursday's card).
+function geoStatusFor(locId, date) {
+  if (date !== todayInScotland()) return null;
+  if (Geo.anchorMile(locId) == null) return null;
+  const cache = Geo.getFix(date);
+  if (!cache?.last) return { cache: null };
+  const dist = Geo.distanceTo(cache.last, locId);
+  if (!dist) return { cache };
+  const ageMin = Math.max(0, Math.round((Date.now() - cache.last.t) / 60000));
+  return { cache, dist, ageMin, stale: ageMin > 90, passed: dist.totalMi <= -0.05 };
+}
+
+function ageLabel(ageMin) {
+  if (ageMin < 1) return 'now';
+  if (ageMin < 60) return `${ageMin}m`;
+  return `${Math.round(ageMin / 60)}h`;
+}
+
+// The block-header chip. Suppressed on travel days (their heading already
+// carries a role like "Cruise" that a distance figure would crowd) and on any
+// day that is not today, per geoStatusFor above.
+function geoChip(locId, date, travelDay) {
+  if (travelDay) return '';
+  const s = geoStatusFor(locId, date);
+  if (!s) return '';
+  const inner = (!s.cache || !s.dist)
+    ? `${HILL_ICON}<span class="gc-txt">locate</span>`
+    : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${s.passed ? 'passed' : milesStr(s.dist.totalMi)}</span>`
+      + `<span class="gc-age">${ageLabel(s.ageMin)}</span>`;
+  return ` <button class="geochip" data-loc="${locId}" data-date="${date}"`
+    + ` aria-label="Distance to ${LOC[locId].name}">${inner}</button>`;
+}
+
+// The fourth glance value, alongside Feels / Wind / Midge — the arm's-length
+// screen is exactly where this number belongs.
+function glanceGeoValue(locId, date) {
+  const s = geoStatusFor(locId, date);
+  if (!s) return '';
+  const value = (!s.cache || !s.dist) ? 'Tap' : s.passed ? 'Passed' : milesStr(s.dist.totalMi);
+  return `<button class="gv geochip" data-loc="${locId}" data-date="${date}">`
+    + `<span class="gvl">${HILL_ICON}Dist</span><span class="gvv">${value}</span></button>`;
+}
+
+// milesStr/feetStr/accuracyStr live in geo.js so the unit rule (miles and feet
+// only, metres never reach a template) has one home; re-exported locally so
+// call sites here read the same as everywhere else in this file.
+const milesStr = Geo.milesStr;
+const feetStr = Geo.feetStr;
+
+// ---- popup -----------------------------------------------------------
+
+let geoOpenFor = null; // { locId, day } — the popup's current subject
+const GEO_EXPLAINED_KEY = 'whw.geo.explained';
+
+function geoEls() {
+  return {
+    backdrop: document.getElementById('geoBackdrop'),
+    popup: document.getElementById('geoPopup'),
+    body: document.getElementById('geoBody'),
+  };
+}
+
+function openGeoPopup(locId, date) {
+  const day = DAYS.find((d) => d.date === date);
+  if (!day) return;
+  geoOpenFor = { locId, day };
+  const { backdrop, popup } = geoEls();
+  backdrop.hidden = false;
+  popup.hidden = false;
+  if (localStorage.getItem(GEO_EXPLAINED_KEY) === '1') runGeoLocate();
+  else renderGeoExplainer();
+}
+
+function closeGeoPopup() {
+  geoOpenFor = null;
+  const { backdrop, popup } = geoEls();
+  backdrop.hidden = true;
+  popup.hidden = true;
+}
+
+// Shown exactly once, ever, before the very first location request. Thirteen
+// other people are installing this app; a permission denied by reflex on an
+// unexplained OS prompt is not easily recoverable without a trip into Settings.
+function renderGeoExplainer() {
+  const { body } = geoEls();
+  body.innerHTML = `
+    <p class="geo-explain">Uses your phone's GPS once, right now, to work out
+      the distance along the trail. It never runs in the background, so it
+      costs no battery between taps.</p>
+    <button class="geo-go" id="geoGo">Find me</button>`;
+  document.getElementById('geoGo').addEventListener('click', () => {
+    localStorage.setItem(GEO_EXPLAINED_KEY, '1');
+    runGeoLocate();
+  });
+}
+
+async function runGeoLocate() {
+  const { body } = geoEls();
+  body.innerHTML = '<p class="geo-status">Locating…</p>';
+  const subject = geoOpenFor;
+  if (!subject) return;
+  try {
+    const fix = await Geo.locate();
+    const snapped = Geo.snap(fix.lat, fix.lon);
+    const cache = Geo.recordFix(subject.day.date, snapped, fix.accM, fix.t);
+    if (geoOpenFor !== subject) return; // popup moved on while we waited
+    renderGeoResult(subject.locId, subject.day, cache);
+    refreshGeoChips(subject.day.date);
+  } catch {
+    if (geoOpenFor !== subject) return;
+    renderGeoError();
+  }
+}
+
+function renderGeoError() {
+  const { body } = geoEls();
+  body.innerHTML = `
+    <p class="geo-status">Couldn't get a fix — check location is allowed for
+      this site, and that you have a clear view of the sky.</p>
+    <button class="geo-go" id="geoRetry">Retry</button>`;
+  document.getElementById('geoRetry').addEventListener('click', runGeoLocate);
+}
+
+function renderGeoResult(locId, day, cache) {
+  const { body } = geoEls();
+  const fix = cache.last;
+  const dist = Geo.distanceTo(fix, locId);
+  const loc = LOC[locId];
+
+  if (!dist) {
+    body.innerHTML = `<p class="geo-status">No trail distance is known for ${loc.name}.</p>`;
+    return;
+  }
+
+  const passed = dist.totalMi <= -0.05;
+
+  const fromA = Geo.anchor(day.from);
+  const toA = Geo.anchor(day.to);
+  const targetA = Geo.anchor(locId);
+  const ascLeft = (!passed && fromA && toA && targetA)
+    ? Geo.ascentRemaining(day, fix, fromA.ascFt, toA.ascFt, targetA.ascFt)
+    : null;
+
+  const pace = Geo.paceEstimate(day, cache);
+  const etaH = passed ? null : Geo.etaHours(dist.totalMi, pace);
+  const etaStr = etaH != null ? ampm(hourOfLocal(fix.t) + etaH) : null;
+  const paceNote = pace
+    ? `${pace.mph.toFixed(1)} mph ${pace.source}${pace.sinceT ? ` since ${ampm(hourOfLocal(pace.sinceT))}` : ''}`
+    : '';
+
+  const doneToday = cache.base?.confirmed ? Math.max(0, fix.mi - cache.base.mi) : null;
+
+  const headline = passed ? `Passed ${loc.name}` : `${milesStr(dist.totalMi)} to go`;
+  const offLine = (!passed && dist.offTrailMi > 0)
+    ? `<p class="geo-off">${milesStr(dist.offTrailMi)} off trail, straight-line`
+      + `<br>+ ${milesStr(dist.onTrailMi)} on trail</p>`
+    : '';
+
+  const rows = [];
+  if (doneToday != null) rows.push(['Done today', milesStr(doneToday)]);
+  if (ascLeft != null) rows.push(['Climb left', `+${feetStr(ascLeft)}`]);
+  if (etaStr) rows.push(['ETA', `${etaStr}${paceNote ? `<small>${paceNote}</small>` : ''}`]);
+
+  const others = dayPoints(day)
+    .filter((p) => p.locId !== locId && Geo.anchorMile(p.locId) != null)
+    .map((p) => {
+      const d = Geo.distanceTo(fix, p.locId);
+      if (!d || d.totalMi <= -0.05) return null;
+      return `<li><span>${LOC[p.locId].name}</span><span>${milesStr(d.totalMi)}</span></li>`;
+    })
+    .filter(Boolean)
+    .join('');
+
+  body.innerHTML = `
+    <p class="geo-loc">${loc.name}</p>
+    <p class="geo-hl">${headline}</p>
+    ${offLine}
+    ${rows.length ? `<div class="geo-rows">${rows.map(([k, v]) =>
+      `<p class="geo-row"><span>${k}</span><span>${v}</span></p>`).join('')}</div>` : ''}
+    ${others ? `<ul class="geo-others">${others}</ul>` : ''}
+    <p class="geo-fix">Fix ${ampm(hourOfLocal(fix.t))} · ${Geo.accuracyStr(fix.accM)}</p>
+    <button class="geo-go" id="geoUpdate">Update</button>`;
+  document.getElementById('geoUpdate').addEventListener('click', runGeoLocate);
+}
+
+// Called after a fresh fix lands, so every chip already on screen reflects it
+// without a full render() — a full render would reset scroll position out
+// from under whoever is reading.
+function refreshGeoChips(date) {
+  document.querySelectorAll(`.geochip[data-date="${date}"]`).forEach((el) => {
+    const locId = el.dataset.loc;
+    const s = geoStatusFor(locId, date);
+    if (!s) return;
+    const isGlanceValue = el.classList.contains('gv');
+    if (isGlanceValue) {
+      const value = (!s.cache || !s.dist) ? 'Tap' : s.passed ? 'Passed' : milesStr(s.dist.totalMi);
+      el.innerHTML = `<span class="gvl">${HILL_ICON}Dist</span><span class="gvv">${value}</span>`;
+    } else {
+      el.innerHTML = (!s.cache || !s.dist)
+        ? `${HILL_ICON}<span class="gc-txt">locate</span>`
+        : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${s.passed ? 'passed' : milesStr(s.dist.totalMi)}</span>`
+          + `<span class="gc-age">${ageLabel(s.ageMin)}</span>`;
+    }
+  });
 }
 
 // ---------------------------------------------------------------- glance mode
@@ -586,6 +835,7 @@ function renderGlance() {
       ${glanceValue('Feels', feels)}
       ${glanceValue('Wind', wind)}
       ${glanceValue('Midge', midge)}
+      ${glanceGeoValue(locId, day.date)}
     </div>
     <button class="gexit" id="gexit">Detail</button>
   </div>`;
@@ -789,6 +1039,20 @@ function wire() {
 
   document.getElementById('contrast').addEventListener('click', () => applyTheme(true));
   document.getElementById('glance').addEventListener('click', () => setGlance(!glanceMode));
+
+  // Delegated: chips are re-created on every render() (day cards) and are
+  // rewritten in place by refreshGeoChips() otherwise, so a single listener on
+  // the document body outlives all of them.
+  document.body.addEventListener('click', (e) => {
+    const chip = e.target.closest('.geochip');
+    if (!chip) return;
+    openGeoPopup(chip.dataset.loc, chip.dataset.date);
+  });
+  document.getElementById('geoBackdrop').addEventListener('click', closeGeoPopup);
+  document.getElementById('geoClose').addEventListener('click', closeGeoPopup);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && geoOpenFor) closeGeoPopup();
+  });
 
   // Rotation and text-size changes can change #status's height, which #tabs's
   // sticky offset depends on.

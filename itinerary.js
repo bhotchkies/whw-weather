@@ -18,7 +18,12 @@ export const LOCATIONS = [
   { id: 'inveroran',   name: 'Inveroran',              lat: 56.5495, lon: -4.8175 },
   { id: 'kingshouse',  name: 'Kingshouse',             lat: 56.6428, lon: -4.8140 },
   { id: 'kinlochleven',name: 'Kinlochleven',           lat: 56.7135, lon: -4.9640 },
-  { id: 'sleubhaich',  name: 'Tigh-na-Sleubhaich',     lat: 56.7570, lon: -5.0180 },
+  // Corrected 2026-07-28: the original coordinate sat ~3 km off the trail, on
+  // a hillside in the next glen. This point is on the trail itself, at the
+  // Lairig Mor high point where the ruins actually stand (mile 85.0) — see
+  // tools/build_route.js and the trail-distance feature plan for how it was
+  // derived from the GPX track.
+  { id: 'sleubhaich',  name: 'Tigh-na-Sleubhaich',     lat: 56.7306, lon: -5.0696 },
   { id: 'fortwilliam', name: 'Fort William',           lat: 56.8180, lon: -5.1080 },
   { id: 'glasgow',     name: 'Glasgow Airport',        lat: 55.8660, lon: -4.4340 },
 ];
