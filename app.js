@@ -489,11 +489,15 @@ function hourOfLocal(t) {
 
 // Everything the header chip and the glance value need to know about one
 // point, read purely from the cache — never touches GPS. Returns null when
-// the chip should not render at all (no anchor for this location, or the
-// day in question is not today — a cached fix from Tuesday means nothing on
-// Thursday's card).
+// the chip should not render at all (no anchor for this location).
+//
+// Deliberately not gated to "date === today": before the trip starts, no day
+// card is ever today, which made every chip invisible during testing and
+// would do the same on any day someone checks ahead or looks back on the
+// hike itself. The fix a chip reads is whatever the last tap found — tapping
+// it while looking at a different day's card just answers "how far from
+// where I last checked in to this day's point", which is honest either way.
 function geoStatusFor(locId, date) {
-  if (date !== todayInScotland()) return null;
   if (Geo.anchorMile(locId) == null) return null;
   const cache = Geo.getFix(date);
   if (!cache?.last) return { cache: null };
