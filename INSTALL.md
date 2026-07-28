@@ -58,7 +58,7 @@ Turn aeroplane mode back off afterwards.
 
 **Look at the bar across the top first.** It tells you how old the data is.
 
-| Colour | Meaning |
+| Color | Meaning |
 |---|---|
 | Green | Fresh |
 | Amber | A few hours old |
@@ -80,7 +80,7 @@ forecast. Once we're walking it keeps showing whatever it last downloaded.
   as a rough steer.
 - **Glance** is a big-type screen for reading on the move — it tells you when the
   rain starts or stops, and little else.
-- **Moon** switches to a deeper, darker colour scheme; the button then says
+- **Moon** switches to a deeper, darker color scheme; the button then says
   **Sun** to switch back. The default is already the easier one to read outside.
 - **Refresh** grabs new data if you spot a bar of signal. It spins while it
   works and shows **Updated** when it's done, or **Retry** if it couldn't reach

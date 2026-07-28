@@ -18,7 +18,7 @@ working on Rannoch Moor where there is no mobile signal at all.
 Follows the constants published at `biteforecast.scot/how-the-index-works`,
 which cite APS Biocontrol / Smidge and Blackwell on *Culicoides impunctatus*:
 
-| Factor | Behaviour |
+| Factor | Behavior |
 |---|---|
 | Temperature | Zero below 7 °C; peaks ~15 °C; falls away above 21 °C |
 | Wind | Dominant suppressor. Falls off sharply from 5 mph, near-zero by 18 mph |

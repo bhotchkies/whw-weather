@@ -20,7 +20,7 @@ requires every browser to run on the same engine underneath. Safari is the
 one guaranteed to work on any iOS version; Chrome supports it from iOS 17.
 
 1. Open the link in Safari or Chrome.
-2. Tap the **Share** button (square with an arrow — bottom centre in Safari,
+2. Tap the **Share** button (square with an arrow — bottom center in Safari,
    in the address bar in Chrome).
 3. Scroll down, tap **Add to Home Screen**.
 4. Tap **Add**.
@@ -64,7 +64,12 @@ forecast on screen may be a day out of date. It never hides.
   one GPS fix, works with **no signal at all**, and switches your phone's GPS
   straight back off afterward — nothing runs in the background between taps.
   The number shown the rest of the time is whatever that last tap found,
-  labelled with how long ago it was taken.
+  labeled with how long ago it was taken.
+- The **Map** button in that same popup opens an offline map with the trail
+  drawn on it. It needs a one-time download (see below) but no signal at all
+  after that. Off the trail, it draws a dashed line to the nearest point and
+  says so — it's a straight line, not a route, so check the ground before
+  following it.
 
 Temperatures are °F with °C beside them. Wind is mph, with gusts marked `g`.
 Rain is mm. All times are UK time, including for anyone watching from home.
@@ -87,6 +92,16 @@ Rain is mm. All times are UK time, including for anyone watching from home.
   is scaled to match the planning doc's per-day figures, since raw GPS
   elevation is noisy; the printed mileage is always the doc's, live distance is
   the only thing GPS drives.
+- **Offline map:** a real basemap ([MapLibre](https://maplibre.org) + a
+  [Protomaps](https://protomaps.com) extract of OpenStreetMap data, © OpenStreetMap
+  contributors, ODbL) covering a corridor either side of the trail plus a
+  coarser view of the wider area, so panning off the corridor never shows a
+  blank screen. It's a **convenience, not a safety device** — the group
+  carries a Garmin for genuine emergencies — and it never polls your location:
+  one fix per tap, same as the distance popup, no background tracking. The
+  whole thing (map data, plus the small map-drawing library itself) is a
+  one-time ~12 MB download, opt-in, kept in the phone's own storage rather
+  than the app's regular cache so it doesn't inflate anyone else's first load.
 - A full refresh is about **110 KB** compressed — 16 days, hourly, for all 16
   locations, plus 15-minute precipitation for the next 48 hours. Roughly a third
   of a photo, so refreshing often costs almost nothing.
@@ -106,6 +121,9 @@ been dead weight in every phone's cache.
 | `midge.js` | Midge index |
 | `geo.js` | GPS fix, trail snapping, pace and unit formatting |
 | `route.js` | Generated trail polyline — see `tools/build_route.js` |
+| `map.js` | Offline map: IndexedDB store, download manager, MapLibre wiring |
+| `map_style.js` | The map's visual style |
+| `map/` | Vendored MapLibre + pmtiles.js, glyphs, and the two generated `.pmtiles` archives — see `tools/build_map.js` |
 | `sw.js` | Offline cache |
 
 ---

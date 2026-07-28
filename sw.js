@@ -2,7 +2,7 @@
 // Forecast data is NOT cached here — app.js keeps that in localStorage so it can
 // reason about how old it is. The network is always tried first for data.
 
-const VERSION = 'whw-v28';
+const VERSION = 'whw-v30';
 const SHELL = [
   './',
   './index.html',
@@ -11,6 +11,8 @@ const SHELL = [
   './midge.js',
   './geo.js',
   './route.js',
+  './map.js',
+  './map_style.js',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
@@ -47,6 +49,14 @@ self.addEventListener('fetch', (e) => {
   // Never intercept the weather API — app.js handles its own timeout and
   // fallback, and a cached forecast masquerading as fresh would be dangerous.
   if (url.hostname.endsWith('open-meteo.com')) return;
+
+  // Never intercept anything under /map/ — the offline map's vendored
+  // library, glyphs, and the two multi-MB .pmtiles archives. map.js manages
+  // these itself in IndexedDB, opt-in; letting networkFirst cache them here
+  // too would silently double their storage footprint for everyone who
+  // downloads the map, in a cache this file doesn't otherwise touch.
+  if (url.pathname.includes('/map/')) return;
+
   if (e.request.method !== 'GET') return;
 
   // Shell: network first, cache as fallback.

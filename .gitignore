@@ -5,3 +5,6 @@ __pycache__/
 # committed route.js. Not needed at runtime; re-download from AllTrails if
 # route.js ever needs regenerating.
 tools/west_highland_way.gpx
+
+# Build intermediate for tools/build_map.js — regenerated fresh on every run.
+tools/corridor.geojson

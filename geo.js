@@ -5,7 +5,7 @@
 // Design constraints (see the trail-distance plan for the full reasoning):
 // - One-shot fixes only. Never watchPosition — that is the fast way to arrive
 //   at Kinlochleven with a dead phone.
-// - Everything displayed is miles and feet. Metres exist only inside the maths
+// - Everything displayed is miles and feet. Meters exist only inside the maths
 //   here; nothing metric should reach app.js's templates.
 // - Off-trail distance is always answerable (straight line + trail distance),
 //   never withheld.
@@ -79,7 +79,7 @@ function pointAt(i) {
 const routeLen = ROUTE.length / ROUTE_STRIDE;
 
 // Returns the trail position nearest a GPS fix: cumulative miles and ascent
-// along the trail at that point, plus how far off the trail (in metres) the
+// along the trail at that point, plus how far off the trail (in meters) the
 // fix itself was. The route is a simple out-and-back-free line with strictly
 // increasing mileage, so a plain scan over ~1,200 points is all this needs —
 // no spatial index, comfortably sub-millisecond.
@@ -88,6 +88,8 @@ export function snap(lat, lon) {
   let best = Infinity;
   let bestMi = 0;
   let bestAscFt = 0;
+  let bestNearLat = lat;
+  let bestNearLon = lon;
 
   for (let i = 0; i < routeLen - 1; i++) {
     const a = pointAt(i);
@@ -106,9 +108,15 @@ export function snap(lat, lon) {
       best = d;
       bestMi = a.mi + (b.mi - a.mi) * u;
       bestAscFt = a.ascFt + (b.ascFt - a.ascFt) * u;
+      // The interpolated point ITSELF, in lat/lon — not projected back from
+      // (cx, cy), which would reintroduce the local projection's own small
+      // error. Interpolating lat/lon directly is exact given a and b are
+      // already real coordinates.
+      bestNearLat = a.lat + (b.lat - a.lat) * u;
+      bestNearLon = a.lon + (b.lon - a.lon) * u;
     }
   }
-  return { mi: bestMi, ascFt: bestAscFt, offM: best };
+  return { mi: bestMi, ascFt: bestAscFt, offM: best, nearLat: bestNearLat, nearLon: bestNearLon };
 }
 
 // The trail position of an itinerary stop — { mi, ascFt } — or null for stops
@@ -154,7 +162,7 @@ export function distanceTo(fix, targetLocId) {
 // profile only decides what fraction of it sits between here and the target.
 //
 // `dayFromAscFt`/`dayToAscFt` are the GPX ascent at the leg's official start
-// and end (day.from / day.to) — the normalising span. `targetAscFt` defaults
+// and end (day.from / day.to) — the normalizing span. `targetAscFt` defaults
 // to the leg's end, so calling with just the leg bounds gives "climb left to
 // tonight's stop"; passing a third point's ascFt (e.g. Midway) gives "climb
 // left to lunch" using the same leg-wide scale.
@@ -191,8 +199,8 @@ export function getFix(date) {
   return c && c.date === date ? c : null;
 }
 
-// Records a new GPS fix for `date`. `snapped` is the result of snap(); `accM`
-// is the fix's own reported accuracy; `t` is Date.now().
+// Records a new GPS fix for `date`. `fix` is the raw result of locate()
+// ({ lat, lon, accM, t }); `snapped` is snap(fix.lat, fix.lon).
 //
 // Baseline rebase logic: while unconfirmed, a new fix within REBASE_MI of the
 // current baseline replaces it outright — this is what discards a pre-departure
@@ -200,9 +208,9 @@ export function getFix(date) {
 // REBASE_MI or further from the baseline confirms it *at that fix* — the
 // moment movement is first detected becomes the pace baseline for the rest of
 // the day, per Blair's call on 2026-07-28.
-export function recordFix(date, snapped, accM, t) {
+export function recordFix(date, fix, snapped) {
   let cache = getFix(date);
-  const point = { mi: snapped.mi, t };
+  const point = { mi: snapped.mi, t: fix.t };
 
   if (!cache) {
     cache = { date, base: { ...point, confirmed: false }, last: null };
@@ -211,7 +219,17 @@ export function recordFix(date, snapped, accM, t) {
     cache.base = { ...point, confirmed: moved };
   }
 
-  cache.last = { mi: snapped.mi, ascFt: snapped.ascFt, offM: snapped.offM, accM, t };
+  // lat/lon of the raw fix, plus the nearest point ON the trail, are kept
+  // alongside the trail-relative numbers — the distance popup only ever
+  // needs mi/ascFt/offM, but the map (real coordinates, drawn on real ground)
+  // needs the actual fix and, when off-trail, where to draw the recovery
+  // line to, without re-snapping later.
+  cache.last = {
+    mi: snapped.mi, ascFt: snapped.ascFt, offM: snapped.offM,
+    lat: fix.lat, lon: fix.lon,
+    nearLat: snapped.nearLat, nearLon: snapped.nearLon,
+    accM: fix.accM, t: fix.t,
+  };
   writeCache(cache);
   return cache;
 }

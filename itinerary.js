@@ -33,7 +33,7 @@ export const LOC = Object.fromEntries(LOCATIONS.map((l) => [l.id, l]));
 // Plain-English phonetic respelling, not IPA — the audience is a Scout troop,
 // not linguists. Only the genuinely non-obvious names; skips ones an English
 // speaker would just read correctly (Kingshouse, Fort William, Drymen-adjacent
-// regulars). `label` is denormalised from LOCATIONS.name on purpose, so this
+// regulars). `label` is denormalized from LOCATIONS.name on purpose, so this
 // list stays correct even if a display name changes, and so Edinburgh — a
 // side-trip destination in the planning doc, not a route stop — can appear
 // with no matching location id.

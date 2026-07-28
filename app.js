@@ -50,7 +50,7 @@ function apiUrl() {
 // ---------------------------------------------------------------- data access
 
 // Prefer the primary model, fall back to best_match, and report which was used
-// so far-out days can be labelled as outlook rather than forecast.
+// so far-out days can be labeled as outlook rather than forecast.
 function pick(block, base, i) {
   const a = block[`${base}_${PRIMARY}`];
   if (a && a[i] != null) return { v: a[i], outlook: false };
@@ -135,7 +135,7 @@ function buildQuarters(entry) {
 
 let MODEL = null; // { fetchedAt, byLocation: {id: {date: [hours]}}, quarters: {id: [...]} }
 
-function normalise(raw) {
+function normalize(raw) {
   const list = Array.isArray(raw) ? raw : [raw];
   const byLocation = {};
   const quarters = {};
@@ -153,7 +153,7 @@ function loadCache() {
     const s = localStorage.getItem(CACHE_KEY);
     if (!s) return null;
     const o = JSON.parse(s);
-    return { fetchedAt: o.fetchedAt, ...normalise(o.raw) };
+    return { fetchedAt: o.fetchedAt, ...normalize(o.raw) };
   } catch { return null; }
 }
 
@@ -183,7 +183,7 @@ async function refresh({ force = false } = {}) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const raw = await res.json();
     saveCache(raw);
-    MODEL = { fetchedAt: Date.now(), ...normalise(raw) };
+    MODEL = { fetchedAt: Date.now(), ...normalize(raw) };
     netState = 'idle';
     // Hold a visible confirmation briefly, otherwise a fast refresh looks
     // identical to nothing having happened.
@@ -283,7 +283,7 @@ function verdict(hours) {
 
 // ------------------------------------------------------------------- rendering
 
-// Top-down beetle silhouette: oval body (fills solid when "on") with a centre
+// Top-down beetle silhouette: oval body (fills solid when "on") with a center
 // dorsal split line and three pairs of short leg-stubs. Earlier attempts drew
 // a head-and-limbs figure that reliably read as a stick person rather than a
 // bug — a vertical body with two limb-pairs branching outward at "shoulder"
@@ -459,7 +459,7 @@ function dayCard(day) {
 
 // Same house style as the other glyphs (beetle, sun, moon): a filled core
 // shape with thin stroke accents. currentColor rather than a fixed ink
-// variable, since this glyph appears inside several different text colours
+// variable, since this glyph appears inside several different text colors
 // (a muted chip, a faded stale chip, a glance value) and should always match.
 const HILL_ICON = `<svg class="hill" viewBox="0 0 14 12" aria-hidden="true">
 <path class="fill" d="M1 11L5.2 3.6L7 6.6L9.2 2.2L13 11Z"/>
@@ -567,7 +567,7 @@ function nextWaypointFor(day) {
 }
 
 // milesStr/feetStr/accuracyStr live in geo.js so the unit rule (miles and feet
-// only, metres never reach a template) has one home; re-exported locally so
+// only, meters never reach a template) has one home; re-exported locally so
 // call sites here read the same as everywhere else in this file.
 const milesStr = Geo.milesStr;
 const feetStr = Geo.feetStr;
@@ -627,7 +627,7 @@ async function runGeoLocate() {
   try {
     const fix = await Geo.locate();
     const snapped = Geo.snap(fix.lat, fix.lon);
-    const cache = Geo.recordFix(subject.day.date, snapped, fix.accM, fix.t);
+    const cache = Geo.recordFix(subject.day.date, fix, snapped);
     if (geoOpenFor !== subject) return; // popup moved on while we waited
     renderGeoResult(subject.locId, subject.day, cache);
     refreshGeoChips(subject.day.date);
@@ -718,8 +718,12 @@ function renderGeoResult(locId, day, cache) {
       `<p class="geo-row"><span>${k}</span><span>${v}</span></p>`).join('')}</div>` : ''}
     ${others ? `<ul class="geo-others">${others}</ul>` : ''}
     <p class="geo-fix">Fix ${ampm(hourOfLocal(fix.t))} · ${Geo.accuracyStr(fix.accM)}</p>
-    <button class="geo-go" id="geoUpdate">Update</button>`;
+    <div class="geo-actions">
+      <button class="geo-go geo-secondary" id="geoMapBtn">Map</button>
+      <button class="geo-go" id="geoUpdate">Update</button>
+    </div>`;
   document.getElementById('geoUpdate').addEventListener('click', runGeoLocate);
+  document.getElementById('geoMapBtn').addEventListener('click', () => openMapScreen(day, fix));
 }
 
 // Called after a fresh fix lands, so every chip already on screen reflects it
@@ -741,6 +745,137 @@ function refreshGeoChips(date) {
       : `${HILL_ICON}<span class="gc-txt${s.stale ? ' stale' : ''}">${label}</span>`
         + `<span class="gc-age">${ageLabel(s.ageMin)}</span>`;
   });
+}
+
+// -------------------------------------------------------------------- offline map
+//
+// A convenience, not a safety device — the group carries a Garmin for genuine
+// emergencies. That framing is what keeps this consistent with the rest of the
+// geo feature: no watchPosition, no follow mode. The map opens on the last
+// known fix and has an Update button that takes one more, same as the popup.
+//
+// map.js and route.js are both loaded by dynamic import(), only when the map
+// screen is actually opened — nobody who never taps "Map" pays to parse
+// MapLibre. Everything here is deliberately thin: map.js owns the IndexedDB
+// store, the download, and the MapLibre/PMTiles wiring; this is just the
+// screen state machine and the wiring to the rest of the app.
+
+let mapController = null;
+let mapDay = null;
+let mapFix = null;
+
+function mapEls() {
+  return {
+    screen: document.getElementById('mapScreen'),
+    container: document.getElementById('mapContainer'),
+    status: document.getElementById('mapStatus'),
+  };
+}
+
+async function openMapScreen(day, fix) {
+  const { screen, status } = mapEls();
+  mapDay = day;
+  mapFix = fix;
+  screen.hidden = false;
+  status.innerHTML = '<p>Loading map…</p>';
+
+  let MapMod;
+  try {
+    MapMod = await import('./map.js');
+  } catch {
+    status.innerHTML = '<p>Could not load the map — check the app is up to date and try again.</p>';
+    return;
+  }
+
+  const st = await MapMod.checkStatus();
+  if (!st.downloaded) {
+    renderMapNotDownloaded(MapMod);
+    return;
+  }
+  await startMap(MapMod);
+}
+
+async function startMap(MapMod) {
+  const { status } = mapEls();
+  try {
+    const RouteMod = await import('./route.js');
+    mapController = await MapMod.open(document.getElementById('mapContainer'), {
+      route: RouteMod, locations: LOCATIONS, day: mapDay,
+    });
+    status.innerHTML = '';
+    if (mapFix) mapController.updateFix(mapFix);
+  } catch (e) {
+    status.innerHTML = `<p>Map failed to open: ${e.message}</p>`;
+  }
+}
+
+function renderMapNotDownloaded(MapMod) {
+  const { status } = mapEls();
+  status.innerHTML = `
+    <p>Offline map not downloaded — about 12 MB, once, on wifi.</p>
+    <button id="mapDownloadBtn">Download</button>`;
+  document.getElementById('mapDownloadBtn').addEventListener('click', () => downloadMap(MapMod));
+}
+
+async function downloadMap(MapMod) {
+  const { status } = mapEls();
+  status.innerHTML = '<p>Downloading…</p><div class="map-progress"><i id="mapProgressBar"></i></div>';
+  const bar = document.getElementById('mapProgressBar');
+  try {
+    await MapMod.downloadAll((loaded, total) => {
+      if (bar) bar.style.width = `${Math.min(100, Math.round((loaded / total) * 100))}%`;
+    });
+    document.getElementById('mapBanner').hidden = true;
+    await startMap(MapMod);
+  } catch (e) {
+    status.innerHTML = `<p>Download failed: ${e.message}</p><button id="mapRetryBtn">Retry</button>`;
+    document.getElementById('mapRetryBtn')?.addEventListener('click', () => downloadMap(MapMod));
+  }
+}
+
+function closeMapScreen() {
+  mapController?.destroy();
+  mapController = null;
+  mapEls().screen.hidden = true;
+}
+
+// Same one-shot fix as the popup's Update button — Geo.locate() here, never
+// watchPosition. Failures are shown in the map's own status area rather than
+// swallowed, since a stuck "Locating…" with no explanation is worse than a
+// plain error on a screen that's meant to help you get unstuck.
+async function mapUpdateFix() {
+  if (!mapDay) return;
+  const { status } = mapEls();
+  const prev = status.innerHTML;
+  status.innerHTML = '<p>Locating…</p>';
+  try {
+    const fix = await Geo.locate();
+    const snapped = Geo.snap(fix.lat, fix.lon);
+    const cache = Geo.recordFix(mapDay.date, fix, snapped);
+    mapFix = cache.last;
+    mapController?.updateFix(mapFix);
+    refreshGeoChips(mapDay.date);
+    status.innerHTML = prev;
+  } catch {
+    status.innerHTML = '<p>Couldn’t get a fix — check location is allowed for this site.</p>';
+  }
+}
+
+// Nagging stops once the trip actually starts — mid-hike, badgering someone
+// about a large download they may have no signal for isn't useful; getting
+// it done beforehand, on wifi, is the whole point.
+const MAP_TRIP_START = DAYS[0].date;
+
+async function updateMapBanner() {
+  const banner = document.getElementById('mapBanner');
+  if (todayInScotland() >= MAP_TRIP_START) { banner.hidden = true; return; }
+  try {
+    const MapMod = await import('./map.js');
+    const st = await MapMod.checkStatus();
+    banner.hidden = st.downloaded;
+  } catch {
+    banner.hidden = true; // a nag that fails to check is not worth surfacing
+  }
 }
 
 // ---------------------------------------------------------------- glance mode
@@ -1107,6 +1242,29 @@ function wire() {
   document.getElementById('geoClose').addEventListener('click', closeGeoPopup);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && geoOpenFor) closeGeoPopup();
+    if (e.key === 'Escape' && !mapEls().screen.hidden) closeMapScreen();
+  });
+
+  document.getElementById('mapClose').addEventListener('click', closeMapScreen);
+  document.getElementById('mapUpdate').addEventListener('click', mapUpdateFix);
+  document.getElementById('mapRecenter').addEventListener('click', () => {
+    if (mapFix) mapController?.recenter(mapFix);
+  });
+
+  document.getElementById('mapBannerBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('mapBannerBtn');
+    const text = document.getElementById('mapBannerText');
+    btn.disabled = true;
+    try {
+      const MapMod = await import('./map.js');
+      await MapMod.downloadAll((loaded, total) => {
+        text.textContent = `Downloading offline map… ${Math.round((loaded / total) * 100)}%`;
+      });
+      document.getElementById('mapBanner').hidden = true;
+    } catch {
+      text.textContent = 'Offline map download failed — tap to retry';
+      btn.disabled = false;
+    }
   });
 
   // Rotation and text-size changes can change #status's height, which #tabs's
@@ -1172,6 +1330,7 @@ function boot() {
   wire();
   render();
   refresh({ force: true });
+  updateMapBanner();
 
   if ('serviceWorker' in navigator) {
     // If a worker was already controlling this page and a new one takes over,

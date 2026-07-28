@@ -199,7 +199,7 @@ td.wind { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink
 td.wind i, .rain i { font-style: normal; font-size: 10px; color: var(--ink-mute); margin-left: 3px; }
 .na { color: var(--ink-mute); }
 
-/* Rain severity by hatch density, in the engraving spirit — not colour. */
+/* Rain severity by hatch density, in the engraving spirit — not color. */
 .rain { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-strong); font-size: 13px; }
 .rain b { display: inline-block; width: 20px; height: 13px; border: 1px solid var(--ink); }
 .rain.r1 b { background-image: repeating-linear-gradient(45deg, var(--ink) 0 1px, transparent 1px 5px); }
@@ -258,7 +258,7 @@ footer .attrib { margin: 14px 0 0; }
 /* ---- glance mode -------------------------------------------------------
    One screen, arm's length, no glasses, one hand. Everything here is sized to
    be read without focusing. Contrast is already 15.66:1 in the default palette,
-   so the work is type size, not colour. */
+   so the work is type size, not color. */
 body.glance-mode header.top,
 body.glance-mode footer { display: none; }
 body.glance-mode #tabs { display: none; }
@@ -398,13 +398,65 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
 }
 
 .geo-fix { margin: 14px 0 0; font-size: 11px; letter-spacing: .06em; color: var(--ink-mute); }
+.geo-actions { display: flex; gap: 8px; margin: 12px 0 0; }
 .geo-go {
-  display: block; width: 100%; margin: 12px 0 0;
+  display: block; width: 100%; margin: 0;
   background: var(--ink); color: var(--ground); border: 0; border-radius: 6px;
   font: 700 14px/1 system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase;
   padding: 14px 0; min-height: 48px;
 }
 .geo-go:active { opacity: .8; }
+.geo-go.geo-secondary { background: none; border: 1.5px solid var(--rule); color: var(--ink); flex: 0 0 30%; }
+
+/* ---- offline map ---------------------------------------------------- */
+
+.map-banner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  background: var(--ink); color: var(--ground);
+  font-size: 12px; font-weight: 600;
+}
+.map-banner button {
+  flex: none; background: var(--ground); color: var(--ink); border: 0; border-radius: 4px;
+  font: 700 11px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
+  padding: 9px 12px; min-height: 34px;
+}
+
+.map-screen {
+  position: fixed; inset: 0; z-index: 40; background: var(--ground);
+  display: flex; flex-direction: column;
+}
+.map-container { flex: 1; position: relative; }
+/* MapLibre's own attribution control already satisfies the ODbL credit
+   requirement — no extra markup needed here. */
+.map-status {
+  position: absolute; left: 12px; right: 12px; top: 12px; z-index: 1;
+  padding: 14px; background: var(--ground); border: 1.5px solid var(--rule); border-radius: 6px;
+  font-size: 13px; color: var(--ink-mute); text-align: center;
+}
+.map-status:empty { display: none; }
+.map-status button {
+  display: block; width: 100%; margin: 10px 0 0;
+  background: var(--ink); color: var(--ground); border: 0; border-radius: 6px;
+  font: 700 13px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
+  padding: 12px 0; min-height: 44px;
+}
+.map-progress {
+  margin: 10px 0 0; height: 6px; border-radius: 3px; background: var(--panel); overflow: hidden;
+}
+.map-progress i { display: block; height: 100%; background: var(--green); width: 0%; }
+
+.map-controls {
+  display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rule); background: var(--ground);
+}
+.map-controls button {
+  flex: 1; background: var(--ink); color: var(--ground); border: 0; border-radius: 6px;
+  font: 700 13px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
+  padding: 13px 0; min-height: 46px;
+}
+#mapClose { flex: 0 0 52px; font-size: 20px; letter-spacing: normal; }
 </style>
 </head>
 <body>
@@ -442,6 +494,24 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
 <div id="geoPopup" class="geo-popup" role="dialog" aria-modal="true" aria-label="Trail distance" hidden>
   <button id="geoClose" class="geo-close" aria-label="Close">×</button>
   <div id="geoBody"></div>
+</div>
+
+<!-- Nag banner: only shown before the trip starts, while the offline map
+     hasn't been downloaded yet. Thirteen other people need to remember to
+     do this on wifi, so it doesn't wait to be found. -->
+<p id="mapBanner" class="map-banner" hidden>
+  <span id="mapBannerText">Offline map not downloaded</span>
+  <button id="mapBannerBtn">Download</button>
+</p>
+
+<div id="mapScreen" class="map-screen" hidden role="dialog" aria-modal="true" aria-label="Offline map">
+  <div id="mapContainer" class="map-container"></div>
+  <div id="mapStatus" class="map-status"></div>
+  <div class="map-controls">
+    <button id="mapClose" aria-label="Close">×</button>
+    <button id="mapRecenter">Recenter</button>
+    <button id="mapUpdate">Update</button>
+  </div>
 </div>
 
 <footer>

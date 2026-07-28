@@ -15,7 +15,7 @@ const OUT = path.join(__dirname, '..', 'route.js');
 const M_PER_MILE = 1609.344;
 const FT_PER_M = 3.28084;
 
-// Elevation smoothing. Raw GPS elevation jitters by a metre or two between
+// Elevation smoothing. Raw GPS elevation jitters by a meter or two between
 // consecutive points, and summing every positive step counts that jitter as
 // climbing: the raw track totals 28,097 ft against the planning doc's 11,641.
 // An 11-point moving average plus a 5 m threshold brings the whole-route total
@@ -38,7 +38,7 @@ const DEG = Math.PI / 180;
 const EARTH_R = 6371000;
 
 // Everything here happens inside one Scottish glen's worth of latitude, so a
-// local equirectangular projection is accurate to well under a metre and makes
+// local equirectangular projection is accurate to well under a meter and makes
 // the perpendicular-distance maths plain arithmetic.
 const MID_LAT = 56.4;
 const KX = EARTH_R * DEG * Math.cos(MID_LAT * DEG);
@@ -46,7 +46,7 @@ const KY = EARTH_R * DEG;
 
 const project = (lat, lon) => [lon * KX, lat * KY];
 
-function metresBetween(a, b) {
+function metersBetween(a, b) {
   const dLat = (b.lat - a.lat) * DEG;
   const dLon = (b.lon - a.lon) * DEG;
   const meanLat = ((a.lat + b.lat) / 2) * DEG;
@@ -96,20 +96,20 @@ function measure(pts) {
     return sum / n;
   });
 
-  let metres = 0;
+  let meters = 0;
   let ascent = 0;
   let ref = smoothed[0];
   pts[0].mi = 0;
   pts[0].ascFt = 0;
 
   for (let i = 1; i < pts.length; i++) {
-    metres += metresBetween(pts[i - 1], pts[i]);
+    meters += metersBetween(pts[i - 1], pts[i]);
     const rise = smoothed[i] - ref;
     // Only commit a climb once it clears the noise floor; reset the reference
     // on a matching descent so a long downhill does not bank phantom ascent.
     if (rise > ASCENT_THRESHOLD_M) { ascent += rise; ref = smoothed[i]; }
     else if (rise < -ASCENT_THRESHOLD_M) { ref = smoothed[i]; }
-    pts[i].mi = metres / M_PER_MILE;
+    pts[i].mi = meters / M_PER_MILE;
     pts[i].ascFt = ascent * FT_PER_M;
   }
   return pts;
@@ -150,7 +150,7 @@ function anchorFor(pts, lat, lon) {
   let best = Infinity;
   let bestIdx = 0;
   for (let i = 0; i < pts.length; i++) {
-    const d = metresBetween(target, pts[i]);
+    const d = metersBetween(target, pts[i]);
     if (d < best) { best = d; bestIdx = i; }
   }
   return { mi: pts[bestIdx].mi, ascFt: pts[bestIdx].ascFt, offM: best };
