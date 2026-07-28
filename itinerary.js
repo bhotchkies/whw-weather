@@ -43,6 +43,7 @@ export const LOC = Object.fromEntries(LOCATIONS.map((l) => [l.id, l]));
 // Linnhe were added afterward at his request and confirmed as proposed.
 export const PRONUNCIATIONS = [
   { id: 'milngavie',    label: 'Milngavie',           respelling: 'mull-GUY' },
+  { id: 'dumgoyne',     label: 'Dumgoyne',             respelling: 'duhm-GOYN' },
   { id: 'drymen',       label: 'Drymen',               respelling: 'DRIM-en' },
   { id: 'balmaha',      label: 'Balmaha',              respelling: 'bal-ma-HAH' },
   { id: null,           label: 'Loch Lomond',          respelling: 'lokh LOH-mund', note: 'the loch you walk beside, days 1-3' },
