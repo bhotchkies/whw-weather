@@ -85,6 +85,11 @@ export const PLACES = [
     id: 'kip-in-the-kirk-hillview', name: 'Kip in the Kirk (Hillview)', kind: 'lodging',
     dates: ['2026-08-01'], lat: 56.06607, lon: -4.45276,
   },
+  // https://maps.app.goo.gl/gha8PZcrdERRYFF96
+  {
+    id: 'kip-in-the-kirk-checkin', name: 'Kip in the Kirk (Check in)', kind: 'lodging',
+    dates: ['2026-08-01'], lat: 56.06658, lon: -4.45088,
+  },
   // https://maps.app.goo.gl/qjesFwpo9E2LbBUK8
   {
     id: 'spar-drymen', name: 'SPAR Drymen', kind: 'shop',
