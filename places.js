@@ -42,6 +42,7 @@ export const PLACE_KINDS = {
   transport: { label: 'Transport', color: '#4A4A3A' },
   water:     { label: 'Water',     color: '#1565C0' },
   gear:      { label: 'Gear',      color: '#2E7D32' },
+  sight:     { label: 'Sight',     color: '#B8860B' },
 };
 
 export const PLACES = [
@@ -94,6 +95,11 @@ export const PLACES = [
   },
 
   // ---- Aug 1 — Drymen ------------------------------------------------------
+  // Trail mile 3.85, between Milngavie and Dumgoyne.
+  {
+    id: 'blairs-hill', name: "Blair's Hill", kind: 'sight',
+    dates: ['2026-08-01'], lat: 55.988158, lon: -4.343480,
+  },
   // https://maps.app.goo.gl/RhXqcjcH23BbQ14u5
   {
     id: 'the-clachan', name: 'The Clachan Inn', kind: 'food',
