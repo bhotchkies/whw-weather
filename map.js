@@ -8,6 +8,7 @@
 
 import * as Geo from './geo.js';
 import { buildStyle } from './map_style.js';
+import { PLACE_KINDS } from './places.js';
 
 const DB_NAME = 'whw-map';
 const DB_VERSION = 1;
@@ -255,6 +256,7 @@ async function registerArchives() {
 
 const TRAIL_SOURCE = 'whw-trail';
 const WAYPOINTS_SOURCE = 'whw-waypoints';
+const PLACES_SOURCE = 'whw-places';
 const POSITION_SOURCE = 'whw-position';
 const RECOVERY_SOURCE = 'whw-recovery';
 
@@ -293,6 +295,24 @@ function waypointsGeoJSON(locations, todayFrom, todayTo) {
   };
 }
 
+// Lodging/food/shop/transport markers from places.js — a second, independent
+// marker class from the trail waypoints above. `dayDate` is DAYS[].date; a
+// place is "today" if that date appears in its own `dates` list.
+function placesGeoJSON(places, dayDate) {
+  return {
+    type: 'FeatureCollection',
+    features: places.map((p) => ({
+      type: 'Feature',
+      properties: {
+        name: p.name,
+        color: PLACE_KINDS[p.kind].color,
+        today: p.dates.includes(dayDate) ? 1 : 0,
+      },
+      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+    })),
+  };
+}
+
 function emptyFC() {
   return { type: 'FeatureCollection', features: [] };
 }
@@ -313,7 +333,7 @@ function emptyFC() {
 // returned undefined and silently did nothing: no dot, no recovery line,
 // on every open. Caught by testing, not by inspection — the failure mode
 // was total silence, nothing to see in the console.
-export async function open(container, { route, locations, day, fix }) {
+export async function open(container, { route, locations, places, day, fix }) {
   const status = await checkStatus();
   if (!status.downloaded) throw new Error('Map not downloaded');
 
@@ -372,6 +392,34 @@ export async function open(container, { route, locations, day, fix }) {
           'text-size': 12, 'text-offset': [0, 1.1], 'text-anchor': 'top',
         },
         paint: { 'text-color': '#10261A', 'text-halo-color': '#EFE8D6', 'text-halo-width': 1.5 },
+      });
+
+      map.addSource(PLACES_SOURCE, {
+        type: 'geojson',
+        data: placesGeoJSON(places ?? [], day.date),
+      });
+      // Fill/stroke is the inverse of the trail waypoints above (light fill,
+      // dark stroke there) — that contrast, plus per-category color, is what
+      // separates the two marker classes at a glance with no icon or sprite.
+      map.addLayer({
+        id: 'places', type: 'circle', source: PLACES_SOURCE, minzoom: 13,
+        paint: {
+          'circle-radius': ['case', ['==', ['get', 'today'], 1], 6, 4],
+          'circle-color': ['get', 'color'],
+          'circle-stroke-color': '#EFE8D6',
+          'circle-stroke-width': 1.5,
+        },
+      });
+      map.addLayer({
+        id: 'place-labels', type: 'symbol', source: PLACES_SOURCE, minzoom: 14,
+        layout: {
+          'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'],
+          'text-size': 11, 'text-offset': [0, 1.0], 'text-anchor': 'top',
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': '#EFE8D6', 'text-halo-width': 1.5,
+        },
       });
 
       map.addSource(POSITION_SOURCE, { type: 'geojson', data: emptyFC() });

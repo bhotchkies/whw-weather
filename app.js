@@ -3,6 +3,7 @@
 // the last good response when there is no signal. Nothing here needs an API key.
 
 import { LOCATIONS, LOC, DAYS, PRONUNCIATIONS, PRONOUNCE_BY_ID } from './itinerary.js';
+import { PLACES } from './places.js';
 import { midgeScore, midgeBand } from './midge.js';
 import * as Geo from './geo.js';
 
@@ -800,7 +801,7 @@ async function startMap(MapMod) {
   try {
     const RouteMod = await import('./route.js');
     mapController = await MapMod.open(document.getElementById('mapContainer'), {
-      route: RouteMod, locations: LOCATIONS, day: mapDay, fix: mapFix,
+      route: RouteMod, locations: LOCATIONS, places: PLACES, day: mapDay, fix: mapFix,
     });
     status.innerHTML = '';
   } catch (e) {
