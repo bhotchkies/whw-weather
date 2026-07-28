@@ -33,6 +33,15 @@ const FILES = [
 ];
 const ARCHIVES = FILES.filter((f) => f.kind === 'tile');
 
+// Bump whenever corridor.pmtiles or wide.pmtiles are rebuilt (tools/build_map.js)
+// and recommitted. The integrity check below only verifies a downloaded archive
+// isn't corrupted — it has no way to know the *content* is out of date, so
+// replacing the files on the server alone would silently leave anyone who
+// already tapped Download stuck on the old tiles forever. Storing this
+// alongside the archives and comparing on every checkStatus() call is what
+// makes a stale download visible again as "not downloaded".
+const ARCHIVE_VERSION = 2; // 2: corridor gained rounded end-caps at both ends
+
 // ------------------------------------------------------------------ IndexedDB
 
 function openDB() {
@@ -110,12 +119,15 @@ export async function checkStatus() {
   const verified = await Promise.all(FILES.map((f, i) =>
     f.kind === 'tile' ? verifyTile(records[i]) : verifyVendor(records[i])
   ));
-  const downloaded = verified.every(Boolean);
+  const versionRecord = await idbGet('__version');
+  const currentVersion = verified.every(Boolean) && versionRecord?.version === ARCHIVE_VERSION;
+  const downloaded = currentVersion;
   const bytes = records.reduce((sum, r) => sum + (r?.blob?.size ?? 0), 0);
   if (!downloaded) {
-    // Don't leave a half-good, half-corrupt set sitting in IndexedDB — a
-    // future download should start clean rather than merge with debris.
-    await Promise.all(FILES.map((f) => idbDelete(f.name)));
+    // Don't leave a half-good, half-corrupt, or stale-versioned set sitting in
+    // IndexedDB — a future download should start clean rather than merge with
+    // debris or silently keep serving outdated tiles.
+    await Promise.all([...FILES.map((f) => idbDelete(f.name)), idbDelete('__version')]);
   }
   return { downloaded, mb: bytes / 1e6 };
 }
@@ -151,6 +163,7 @@ export async function downloadAll(onProgress) {
     const blob = new Blob(chunks, mime ? { type: mime } : undefined);
     await idbPut({ name, blob, bytes: blob.size, builtAt: Date.now() });
   }
+  await idbPut({ name: '__version', version: ARCHIVE_VERSION });
 
   // Best-effort — a denied persist request doesn't stop the map from working,
   // it just means the eviction risk the plan calls out stays un-mitigated on

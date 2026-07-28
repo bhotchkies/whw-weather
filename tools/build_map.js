@@ -54,6 +54,32 @@ const BUILD_HOST = 'https://build.protomaps.com/';
 // decimate to a coarse hull first, then buffer *wider* than the target to
 // absorb the corner-cutting the decimation itself introduces. This only has
 // to be good enough to select the right tiles, not a precise boundary.
+//
+// The ribbon itself has flat cutoffs at both ends — offsetting perpendicular
+// to the trail direction gives no coverage for anything "behind" the first
+// point or "past" the last one, however close it is in a straight line. A
+// hotel 0.5 mi south of Milngavie's trail-start point fell outside the ribbon
+// entirely and rendered on the coarse backdrop only, caught by testing (not
+// visible from the code, since the ribbon still *looks* like it should cover
+// a 2.5 mi radius). Fixed by adding a full circle of the same radius around
+// each endpoint as a separate polygon in a MultiPolygon — simpler and more
+// robust than computing the exact tangent points to splice a matching
+// semicircular cap into the ribbon's own ring, and pmtiles extract --region
+// only needs the geometry to select the right tiles, not to be a single
+// simple polygon.
+function circleRing(center, radiusMi, steps = 24) {
+  const milesToDegLat = (mi) => mi / 69.0;
+  const milesToDegLon = (mi, lat) => mi / (69.0 * Math.cos(lat * Math.PI / 180));
+  const ring = [];
+  for (let i = 0; i <= steps; i++) {
+    const theta = (i / steps) * 2 * Math.PI;
+    const dLat = milesToDegLat(radiusMi) * Math.cos(theta);
+    const dLon = milesToDegLon(radiusMi, center[0]) * Math.sin(theta);
+    ring.push([center[1] + dLon, center[0] + dLat]); // [lon, lat] for GeoJSON
+  }
+  return ring;
+}
+
 function buildCorridor(route, strideStride) {
   const pts = [];
   for (let i = 0; i < route.length; i += strideStride) pts.push([route[i], route[i + 1]]);
@@ -78,9 +104,16 @@ function buildCorridor(route, strideStride) {
   }
   const ring = [...left, ...right.reverse(), left[0]];
 
+  const startCap = circleRing(coarse[0], CORRIDOR_BUFFER_MI);
+  const endCap = circleRing(coarse[coarse.length - 1], CORRIDOR_BUFFER_MI);
+
   return {
     type: 'FeatureCollection',
-    features: [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } }],
+    features: [{
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'MultiPolygon', coordinates: [[ring], [startCap], [endCap]] },
+    }],
   };
 }
 
@@ -106,8 +139,9 @@ async function main() {
   const { ROUTE, ROUTE_STRIDE } = await import('../route.js');
   const corridorGeoJSON = buildCorridor(ROUTE, ROUTE_STRIDE);
   fs.writeFileSync(GEOJSON_PATH, JSON.stringify(corridorGeoJSON));
+  const polyCount = corridorGeoJSON.features[0].geometry.coordinates.length;
   console.log(`Wrote ${path.relative(process.cwd(), GEOJSON_PATH)}`
-    + ` (${corridorGeoJSON.features[0].geometry.coordinates[0].length} vertices)`);
+    + ` (${polyCount} polygons: 1 ribbon + 2 end caps)`);
 
   const sourceUrl = await latestBuildUrl();
 
