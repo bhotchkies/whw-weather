@@ -408,9 +408,9 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
 .geo-go:active { opacity: .8; }
 .geo-go.geo-secondary { background: none; border: 1.5px solid var(--rule); color: var(--ink); flex: 0 0 30%; }
 
-/* ---- offline map ---------------------------------------------------- */
+/* ---- bottom nag banners (install prompt, offline map) ---------------- */
 
-.map-banner {
+.nag-banner {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
   margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
@@ -419,8 +419,8 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
 }
 /* Same fix as .map-screen above — display:flex here otherwise defeats the
    hidden attribute completely, regardless of specificity. */
-.map-banner[hidden] { display: none; }
-.map-banner button {
+.nag-banner[hidden] { display: none; }
+.nag-banner button {
   flex: none; background: var(--ground); color: var(--ink); border: 0; border-radius: 4px;
   font: 700 11px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
   padding: 9px 12px; min-height: 34px;
@@ -505,10 +505,20 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
   <div id="geoBody"></div>
 </div>
 
+<!-- Install prompt: Chromium fires beforeinstallprompt and gets a real
+     one-tap install button; iOS Safari never fires that event, so it gets a
+     static "tap Share, then Add to Home Screen" card instead, dismissed once
+     and remembered. Takes priority over the map-download banner below
+     whenever it applies — see initInstallBanner() in app.js. -->
+<p id="installBanner" class="nag-banner" hidden>
+  <span id="installBannerText"></span>
+  <button id="installBannerBtn"></button>
+</p>
+
 <!-- Nag banner: only shown before the trip starts, while the offline map
      hasn't been downloaded yet. Thirteen other people need to remember to
      do this on wifi, so it doesn't wait to be found. -->
-<p id="mapBanner" class="map-banner" hidden>
+<p id="mapBanner" class="nag-banner" hidden>
   <span id="mapBannerText">Offline map not downloaded</span>
   <button id="mapBannerBtn">Download</button>
 </p>

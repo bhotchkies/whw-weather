@@ -764,6 +764,7 @@ function refreshGeoChips(date) {
 let mapController = null;
 let mapDay = null;
 let mapFix = null;
+let deferredInstallPrompt = null;
 
 function mapEls() {
   return {
@@ -876,6 +877,73 @@ async function updateMapBanner() {
   } catch {
     banner.hidden = true; // a nag that fails to check is not worth surfacing
   }
+}
+
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+// Chromium (Android Chrome, desktop Chrome/Edge) fires beforeinstallprompt,
+// which lets us show a real one-tap install button. iOS Safari never fires
+// that event and has no API to trigger or detect an install — it gets a
+// static "tap Share, then Add to Home Screen" card instead, shown once and
+// remembered via localStorage.
+//
+// Whichever of these applies takes priority over the offline-map banner:
+// updateMapBanner() only runs once this one is resolved (dismissed, acted on,
+// or simply doesn't apply to this browser). If beforeinstallprompt fires
+// later — after the map banner is already showing — it hides that banner and
+// takes the slot back; updateMapBanner() resumes once this one is done.
+function initInstallBanner() {
+  const banner = document.getElementById('installBanner');
+  const text = document.getElementById('installBannerText');
+  const btn = document.getElementById('installBannerBtn');
+
+  if (isStandalone()) { updateMapBanner(); return; }
+
+  if (isIOS()) {
+    if (localStorage.getItem('whw.installDismissed') === '1') { updateMapBanner(); return; }
+    text.textContent = 'Add to Home Screen: tap Share, then "Add to Home Screen"';
+    btn.textContent = '×';
+    btn.onclick = () => {
+      banner.hidden = true;
+      localStorage.setItem('whw.installDismissed', '1');
+      updateMapBanner();
+    };
+    banner.hidden = false;
+    return;
+  }
+
+  // Not iOS: nothing stops the map banner showing immediately; Chromium's
+  // beforeinstallprompt may still arrive later (its own engagement heuristic,
+  // not necessarily on first load) and take the slot over when it does.
+  updateMapBanner();
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    document.getElementById('mapBanner').hidden = true;
+    text.textContent = 'Install this app for reliable offline access';
+    btn.textContent = 'Install';
+    btn.onclick = async () => {
+      banner.hidden = true;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      updateMapBanner();
+    };
+    banner.hidden = false;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    banner.hidden = true;
+    deferredInstallPrompt = null;
+    updateMapBanner();
+  });
 }
 
 // ---------------------------------------------------------------- glance mode
@@ -1330,7 +1398,7 @@ function boot() {
   wire();
   render();
   refresh({ force: true });
-  updateMapBanner();
+  initInstallBanner();
 
   if ('serviceWorker' in navigator) {
     // If a worker was already controlling this page and a new one takes over,
