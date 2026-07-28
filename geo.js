@@ -270,6 +270,21 @@ export function etaHours(remainingMi, pace) {
 
 // ------------------------------------------------------------------- locate
 
+// ?lat=&lon= pins the fix for testing, exactly like app.js's ?now= pins the
+// clock — a real link anyone can tap instead of needing devtools. Optional
+// ?acc= sets the reported accuracy in feet (default 30). Ignored unless both
+// lat and lon are present and numeric, so a stray ?lat= alone can't half-work.
+const LOCATE_OVERRIDE = (() => {
+  const p = new URLSearchParams(location.search);
+  const lat = Number(p.get('lat'));
+  const lon = Number(p.get('lon'));
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  // Number(null) is 0, not NaN — has() is checked explicitly so an absent
+  // ?acc= falls back to the default rather than reporting zero-error GPS.
+  const accFt = p.has('acc') ? Number(p.get('acc')) : NaN;
+  return { lat, lon, accM: (Number.isFinite(accFt) ? accFt : 30) / FT_PER_M };
+})();
+
 // One geolocation fix. Rejects on permission denial, timeout, or any other
 // PositionError — callers decide how to surface that (the popup shows a plain
 // "couldn't get a fix" rather than a raw error code).
@@ -278,6 +293,7 @@ export function etaHours(remainingMi, pace) {
 // the battery cost of GPS is a function of how long it stays on, not how
 // precise the fix is, and a single high-accuracy read is done in seconds.
 export function locate() {
+  if (LOCATE_OVERRIDE) return Promise.resolve({ ...LOCATE_OVERRIDE, t: Date.now() });
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) {
       reject(new Error('Geolocation not supported'));
