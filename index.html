@@ -267,11 +267,16 @@ body.glance-mode #status button { font-size: 12px; padding: 7px 10px; min-height
 
 .glance { padding: 8px 0 0; text-align: center; }
 
+/* Location name and the hill glyph that opens the trail-distance popup, side
+   by side and both centred as a unit. */
+.grow { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0; }
+
 /* Location: large, and obviously tappable, because a wrong guess must be
-   correctable without hunting for a control. Rendered as a plain <p> when the
-   day has only one location, so it carries the same weight without the hint. */
+   correctable without hunting for a control. Rendered as a plain <span> when
+   the day has only one location, so it carries the same weight without the
+   hint — sized by the shared rule below regardless of tag. */
 .gloc {
-  display: block; width: 100%; margin: 0; background: none; border: 0;
+  display: block; margin: 0; background: none; border: 0;
   color: var(--ink-strong); font-family: Georgia, serif; font-weight: 700;
   font-size: 27px; letter-spacing: .01em; padding: 6px 0 2px; line-height: 1.1;
 }
@@ -331,14 +336,7 @@ body.glance-mode #status button { font-size: 12px; padding: 7px 10px; min-height
 }
 .gexit:active { opacity: .8; }
 
-/* Fourth glance value is a real button (opens the trail-distance popup), the
-   other three are plain divs — both share the .gv layout rules. */
-.gvals button.gv {
-  all: unset; box-sizing: border-box; display: block;
-  flex: 1; padding: 12px 2px 4px; text-align: center; cursor: pointer;
-}
-
-/* ---- trail distance: hill glyph, header chip, glance value, popup -------- */
+/* ---- trail distance: hill glyph, header chip, glance popup -------------- */
 
 svg.hill { width: 11px; height: 11px; vertical-align: -1px; margin-right: 3px; flex: none; }
 svg.hill .fill { fill: currentColor; stroke: none; }
@@ -355,9 +353,17 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
 .geochip .gc-txt.stale { color: var(--ink-mute); font-weight: 600; }
 .geochip .gc-age { font-size: 9px; color: var(--ink-mute); }
 
-/* Same chip content, laid out as the fourth glance value instead. */
-.gvals .geochip { color: inherit; }
-.gvals .geochip .gvv { color: var(--ink-strong); }
+/* Glance mode's trigger: the glyph alone, no status text — a big enough
+   circular target to tap at arm's length, sitting right beside the place
+   name rather than buried in the stat row. Overrides the small pill layout
+   .geochip normally uses. */
+.geochip.ghill {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; padding: 0; margin: 0; flex: none;
+  border: 1.5px solid var(--rule); border-radius: 50%; background: none;
+  color: var(--ink-strong);
+}
+.ghill svg.hill { width: 17px; height: 17px; margin: 0; }
 
 .geo-backdrop {
   position: fixed; inset: 0; background: rgba(5,18,10,.45); z-index: 29;
