@@ -1465,6 +1465,19 @@ function defaultDayIndex() {
   return t < DAYS[0].date ? 0 : DAYS.length - 1;
 }
 
+// Same as defaultDayIndex, but never lands on a travel day. Glance exists to
+// check TODAY'S trail conditions — the elevation plot and Dist tile both need
+// a real leg to describe. Before the trip starts (or on the way home)
+// defaultDayIndex() resolves to Arrival or Day 8, which have no trail leg at
+// all (day.from/day.to are airports, off ROUTE_ANCHORS entirely), so glance
+// would silently show the schedule's weather with an empty plot row where
+// its most useful feature belongs. Falls back to the first real walking day.
+function glanceDefaultDayIndex() {
+  const i = defaultDayIndex();
+  if (!DAYS[i].travelDay) return i;
+  return DAYS.findIndex((d) => !d.travelDay);
+}
+
 let selected = defaultDayIndex();
 let glanceMode = false;
 
@@ -1474,7 +1487,7 @@ function setGlance(on) {
   localStorage.setItem('whw.glance', on ? '1' : '0');
   document.getElementById('glance').textContent = on ? 'Detail' : 'Glance';
   // Glance always concerns today; leaving it returns you to the same day.
-  if (on) selected = defaultDayIndex();
+  if (on) selected = glanceDefaultDayIndex();
   render();
 }
 
@@ -1701,11 +1714,17 @@ function boot() {
 
   const params = new URLSearchParams(location.search);
   const q = Number(params.get('day'));
-  if (q >= 1 && q <= DAYS.length) selected = q - 1;
+  const explicitDay = q >= 1 && q <= DAYS.length;
+  if (explicitDay) selected = q - 1;
 
   // ?glance=1 lets a second home screen icon open straight into glance mode.
   glanceMode = params.get('glance') === '1' || localStorage.getItem('whw.glance') === '1';
   document.getElementById('glance').textContent = glanceMode ? 'Detail' : 'Glance';
+  // No explicit ?day= to respect, so apply the same travel-day skip setGlance()
+  // uses — otherwise a home-screen icon straight into glance (or a returning
+  // session that remembered glance was on) lands on Arrival/Day 8 before/after
+  // the trip, same as the runtime toggle did.
+  if (glanceMode && !explicitDay) selected = glanceDefaultDayIndex();
 
   // No baked-in fallback data: a PWA cannot be installed without a network in
   // the first place, so a first launch always has connectivity to fetch live.
