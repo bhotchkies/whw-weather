@@ -1295,6 +1295,14 @@ function renderGlance() {
     : '—';
   const midge = h?.midge != null ? `${h.midge}<b>/10</b>` : '—';
 
+  // Same target as the Dist tile above (glanceGeoValue), so the plot never
+  // disagrees with the number sitting right next to it — both track whichever
+  // point glance is currently showing, cycled together by tapping the name.
+  // elevationPlotSvg returns '' on travel days (no leg domain exists), which
+  // is also the signal to hide the Map/Update row entirely below.
+  const fix = Geo.getFix(day.date)?.last ?? null;
+  const plotSvg = elevationPlotSvg(day, fix, locId);
+
   return `<div class="glance">
     ${canCycle
       ? `<button class="gloc" id="gloc">${LOC[locId].name}<span class="gcyc">tap to change</span></button>`
@@ -1309,8 +1317,87 @@ function renderGlance() {
       ${glanceValue('Midge', midge)}
       ${glanceGeoValue(locId, day.date)}
     </div>
+    ${plotSvg ? `<div class="gelev">
+      ${plotSvg}
+      <div class="gelev-status" id="gelevStatus"></div>
+      <div class="gelev-actions">
+        <button class="gl-btn" id="glMap">Map</button>
+        <button class="gl-btn gl-primary" id="glUpdate">Update</button>
+      </div>
+    </div>` : ''}
     <button class="gexit" id="gexit">Detail</button>
   </div>`;
+}
+
+// ---- glance's own Update/Map, mirroring the popup's runGeoLocate() but
+// deliberately not reusing it: the popup blanks its whole body while
+// locating because it is a transient overlay, whereas glance is the
+// persistent screen — the plot must stay visible and scroll position must
+// not jump (see the "refresh in place" comment on refreshGlanceInPlace).
+
+function glanceUpdate() {
+  if (localStorage.getItem(GEO_EXPLAINED_KEY) === '1') { glanceLocate(); return; }
+  // Same one-time explainer as the popup, same key — accepting it anywhere
+  // accepts it everywhere. Shown inline rather than replacing the plot, which
+  // per the popup's own reasoning should never go blank on this screen.
+  const status = document.getElementById('gelevStatus');
+  status.innerHTML = `
+    <p class="gelev-note">Uses your phone's GPS once, right now, to place you
+      on the trail. Never runs in the background.</p>
+    <button class="gl-btn gl-primary" id="glExplainGo">Find me</button>`;
+  document.getElementById('glExplainGo').addEventListener('click', () => {
+    localStorage.setItem(GEO_EXPLAINED_KEY, '1');
+    glanceLocate();
+  });
+}
+
+async function glanceLocate() {
+  const btn = document.getElementById('glUpdate');
+  const status = document.getElementById('gelevStatus');
+  status.innerHTML = '';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Locating';
+  const day = DAYS[selected];
+  try {
+    const fix = await Geo.locate();
+    const snapped = Geo.snap(fix.lat, fix.lon);
+    Geo.recordFix(day.date, fix, snapped);
+    refreshGlanceInPlace();
+  } catch {
+    status.innerHTML = `<p class="gelev-note">Couldn't get a fix — check
+      location is allowed for this site.</p>`;
+    btn.disabled = false;
+    btn.textContent = 'Update';
+  }
+}
+
+// Re-renders glance's content in place — no window.scrollTo, unlike the
+// normal render() path. render() scrolls to top because it also covers
+// switching INTO glance or changing day, where jumping to the top is
+// correct; Update is a repeat-tap action from a button near the bottom of an
+// already-short screen, and resetting scroll on every tap would put that
+// button out of reach of the thumb that just pressed it.
+function refreshGlanceInPlace() {
+  document.getElementById('cards').innerHTML = renderGlance();
+  wireGlance();
+}
+
+function wireGlance() {
+  document.getElementById('gexit').addEventListener('click', () => setGlance(false));
+  // Absent on single-location days, where there is nothing to cycle to.
+  document.getElementById('gloc')?.addEventListener('click', () => {
+    glancePointOverride = (glancePointOverride ?? 0) + 1;
+    render();
+  });
+  // Absent on travel days, where elevationPlotSvg (and so this whole row)
+  // does not render.
+  document.getElementById('glUpdate')?.addEventListener('click', glanceUpdate);
+  document.getElementById('glMap')?.addEventListener('click', () => {
+    const day = DAYS[selected];
+    // fix may be null — map.js centers on the route start rather than a fix
+    // when none exists, so this is never blocked on GPS having run first.
+    openMapScreen(day, Geo.getFix(day.date)?.last ?? null);
+  });
 }
 
 // Static reference list, rendered once at boot — alphabetical, since this is a
@@ -1468,12 +1555,7 @@ function render() {
   if (glanceMode) {
     document.getElementById('tabs').innerHTML = '';
     document.getElementById('cards').innerHTML = renderGlance();
-    document.getElementById('gexit').addEventListener('click', () => setGlance(false));
-    // Absent on single-location days, where there is nothing to cycle to.
-    document.getElementById('gloc')?.addEventListener('click', () => {
-      glancePointOverride = (glancePointOverride ?? 0) + 1;
-      render();
-    });
+    wireGlance();
     window.scrollTo({ top: 0 });
     return;
   }

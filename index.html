@@ -338,6 +338,31 @@ body.glance-mode #status button { font-size: 12px; padding: 7px 10px; min-height
 .gvv { display: block; font-size: 31px; font-weight: 700; color: var(--ink-strong); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .gvv b { font-size: 15px; font-weight: 600; color: var(--ink-mute); margin-left: 1px; }
 
+/* Elevation plot, promoted from the popup into glance itself so the terrain
+   is visible without leaving the arm's-length screen. Deliberately quieter
+   than .geo-go's popup buttons — next to .gexit's restrained treatment, a
+   full-black 48px button pair would dominate a screen meant to be read in
+   three seconds, not read as two competing calls to action. */
+.gelev { margin: 20px 0 0; padding: 16px 0 0; border-top: 2px solid var(--rule); }
+.gelev .elev-plot { margin: 0; }
+.gelev-status { min-height: 0; margin: 10px 0 0; }
+.gelev-status:empty { margin: 0; }
+.gelev-note {
+  margin: 0 0 8px; font-size: 12px; line-height: 1.5; color: var(--ink-mute);
+  text-align: left;
+}
+.gelev-actions { display: flex; gap: 8px; margin: 10px 0 0; }
+.gl-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: none; border: 1.5px solid var(--rule); color: var(--ink);
+  border-radius: 6px; font: 700 12px/1 system-ui, sans-serif;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 11px 0; min-height: 40px;
+}
+.gl-btn.gl-primary { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.gl-btn:active { opacity: .8; }
+.gl-btn[disabled] { opacity: .6; }
+
 /* Exit at the BOTTOM, where a thumb reaches one-handed. */
 .gexit {
   display: block; width: 100%; margin: 26px 0 0;
