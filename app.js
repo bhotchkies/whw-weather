@@ -604,6 +604,54 @@ function closeGeoPopup() {
   popup.hidden = true;
 }
 
+// ---- share -------------------------------------------------------------
+//
+// QR code + copy-link for handing the app off to someone else on the trip.
+// The QR itself is static markup baked into index.html by tools/build_qr.js
+// — no runtime QR library, no external QR-image API call, so this works
+// offline exactly like everything else in the shell.
+
+const SHARE_URL = 'https://bhotchkies.github.io/whw-weather/';
+
+function shareEls() {
+  return {
+    backdrop: document.getElementById('shareBackdrop'),
+    popup: document.getElementById('sharePopup'),
+    copyBtn: document.getElementById('shareCopyBtn'),
+  };
+}
+
+function openSharePopup() {
+  const { backdrop, popup, copyBtn } = shareEls();
+  backdrop.hidden = false;
+  popup.hidden = false;
+  copyBtn.textContent = 'Copy Link';
+}
+
+function closeSharePopup() {
+  const { backdrop, popup } = shareEls();
+  backdrop.hidden = true;
+  popup.hidden = true;
+}
+
+async function copyShareLink() {
+  const { copyBtn } = shareEls();
+  try {
+    await navigator.clipboard.writeText(SHARE_URL);
+    copyBtn.textContent = 'Copied';
+  } catch {
+    // Clipboard API needs a secure context and can be denied outright —
+    // selecting the URL text is the fallback that always works.
+    const p = document.querySelector('.share-url');
+    const range = document.createRange();
+    range.selectNodeContents(p);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    copyBtn.textContent = 'Selected — copy manually';
+  }
+}
+
 // Shown exactly once, ever, before the very first location request. Thirteen
 // other people are installing this app; a permission denied by reflex on an
 // unexplained OS prompt is not easily recoverable without a trip into Settings.
@@ -1308,9 +1356,16 @@ function wire() {
   });
   document.getElementById('geoBackdrop').addEventListener('click', closeGeoPopup);
   document.getElementById('geoClose').addEventListener('click', closeGeoPopup);
+
+  document.getElementById('shareAppBtn').addEventListener('click', openSharePopup);
+  document.getElementById('shareBackdrop').addEventListener('click', closeSharePopup);
+  document.getElementById('shareClose').addEventListener('click', closeSharePopup);
+  document.getElementById('shareCopyBtn').addEventListener('click', copyShareLink);
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && geoOpenFor) closeGeoPopup();
     if (e.key === 'Escape' && !mapEls().screen.hidden) closeMapScreen();
+    if (e.key === 'Escape' && !shareEls().popup.hidden) closeSharePopup();
   });
 
   document.getElementById('mapClose').addEventListener('click', closeMapScreen);
