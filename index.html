@@ -410,10 +410,12 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
 }
 .ep-xlab { fill: var(--ink-mute); font: 600 9px/1 system-ui, sans-serif; text-anchor: middle; }
 .ep-total { text-anchor: end; letter-spacing: .04em; }
-.ep-area { fill: var(--ink); opacity: .13; }
+.ep-area { fill: var(--ink); opacity: .10; }
 /* The ground still to cover, deepened rather than recolored — it is the same
-   terrain, not a different category. */
-.ep-shade { fill: var(--ink); opacity: .17; }
+   terrain, not a different category. The gap between these two opacities has
+   to be wide: at .13 vs .17 the shaded region was invisible on a phone in
+   daylight, which is the only place it matters. */
+.ep-shade { fill: var(--ink); opacity: .30; }
 .ep-line { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; }
 .ep-water { fill: var(--water); }
 .ep-stem { stroke: var(--rule); stroke-width: 1; }
