@@ -277,6 +277,10 @@ export function etaHours(remainingMi, pace) {
 const LOCATE_OVERRIDE = (() => {
   if (typeof location === 'undefined') return null; // no DOM (e.g. Node-based testing)
   const p = new URLSearchParams(location.search);
+  // has() first: Number(null) is 0, not NaN, so a plain isFinite check alone
+  // would treat an absent ?lat=/?lon= as a real fix at Null Island (0,0) and
+  // silently skip real GPS on every load that doesn't set them.
+  if (!p.has('lat') || !p.has('lon')) return null;
   const lat = Number(p.get('lat'));
   const lon = Number(p.get('lon'));
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
