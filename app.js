@@ -573,6 +573,179 @@ function nextWaypointFor(day) {
 const milesStr = Geo.milesStr;
 const feetStr = Geo.feetStr;
 
+// ---- elevation plot ----------------------------------------------------
+//
+// The terrain of today's leg, drawn under the distance figures in the popup.
+// Inline SVG rather than canvas for two reasons: every render path in this file
+// is an innerHTML template, and an SVG using var(--ink) re-themes itself when
+// dusk mode flips without needing a redraw hook.
+//
+// The x domain is the WHOLE leg, not just the ground left to cover. A domain
+// that shrank as you walked would rescale the picture on every tap, so the same
+// hill would look different each time you checked — which makes "is that climb
+// big?" unanswerable. Fixed domain, moving marker.
+//
+// Note this draws true height above sea level. It is NOT the same quantity as
+// the "Climb left" row above it, which is cumulative ascent reconciled against
+// the planning doc's leg total by Geo.ascentRemaining(). Same shape, different
+// magnitude, deliberately.
+
+const PLOT_W = 335;
+const PLOT_H = 120;
+const PLOT_PAD = { l: 34, r: 8, t: 8, b: 18 };
+const PLOT_X0 = PLOT_PAD.l;
+const PLOT_X1 = PLOT_W - PLOT_PAD.r;
+const PLOT_Y0 = PLOT_PAD.t;
+const PLOT_Y1 = PLOT_H - PLOT_PAD.b;
+
+// Miles between vertical gridlines. Legs run 10.5-17.3 mi, so 5 gives two or
+// three interior ticks — enough to read position, few enough to stay quiet.
+const PLOT_MILE_STEP = 5;
+
+// A tick LABEL closer than this to the right edge would collide with the
+// "N mi trail" total anchored there, so it is dropped. The gridline itself
+// still draws — losing the line as well would leave a visible gap in the
+// grid, and it is the text that collides, not the rule.
+const PLOT_EDGE_GUARD = 0.18;
+
+// Round the leg's highest point up to a whole hundred feet. Always exactly
+// three horizontal lines — 0, half, top — which keeps every label a round
+// number without crowding a 94 px tall frame.
+function plotTop(maxFt) {
+  return Math.max(200, Math.ceil(maxFt / 100) * 100);
+}
+
+// Water taps for a day, by the place's own `dates` rather than by geography.
+// Those arrays are already authored for this: the multi-date entries are the
+// overnight villages, tagged both for the evening you arrive and the morning
+// you refill leaving. A purely geographic filter would drop the Day 7 refill
+// at Kinlochleven, which sits 0.01 mi behind that day's start anchor.
+function waterStopsFor(day, startMi, endMi) {
+  const stops = [];
+  for (const p of PLACES) {
+    if (p.kind !== 'water' || !p.dates.includes(day.date)) continue;
+    const snapped = Geo.snap(p.lat, p.lon);
+    // Clamped, not dropped — a tap marginally outside the domain is real and
+    // belongs at the edge it sits just beyond.
+    const mi = Math.min(endMi, Math.max(startMi, snapped.mi));
+    // Two taps closer together than the mark is wide stack into a single
+    // darker blob rather than reading as two. Kinlochleven's pair both clamp
+    // to Day 7's start, which would otherwise draw the identical path twice.
+    if (stops.some((s) => Math.abs(s - mi) < (endMi - startMi) * 0.012)) continue;
+    stops.push(mi);
+  }
+  return stops;
+}
+
+// x and y must be numbers, not pre-formatted strings — `x + 3.6` on a string
+// concatenates rather than adds and yields silently malformed path data.
+function dropletPath(x, y) {
+  const n = (v) => v.toFixed(1);
+  return `M${n(x)},${n(y - 6)}C${n(x + 3.6)},${n(y - 2.4)} ${n(x + 3.2)},${n(y + 1.6)} ${n(x)},${n(y + 1.6)}`
+    + `C${n(x - 3.2)},${n(y + 1.6)} ${n(x - 3.6)},${n(y - 2.4)} ${n(x)},${n(y - 6)}Z`;
+}
+
+// Returns '' whenever no honest plot can be drawn, so callers can concatenate
+// it unconditionally. Travel days are the main case: Glasgow Airport is
+// deliberately absent from ROUTE_ANCHORS, so those legs have no domain at all.
+function elevationPlotSvg(day, fix, targetLocId) {
+  if (day.travelDay) return '';
+  const fromA = Geo.anchor(day.from);
+  const toA = Geo.anchor(day.to);
+  if (!fromA || !toA || !(toA.mi > fromA.mi)) return '';
+
+  const startMi = fromA.mi;
+  const endMi = toA.mi;
+  const spanMi = endMi - startMi;
+  const profile = Geo.profileFor(startMi, endMi);
+  if (profile.length < 2) return '';
+
+  const top = plotTop(Math.max(...profile.map((p) => p.eleFt)));
+  const x = (mi) => PLOT_X0 + ((mi - startMi) / spanMi) * (PLOT_X1 - PLOT_X0);
+  const y = (ft) => PLOT_Y1 - (Math.max(0, ft) / top) * (PLOT_Y1 - PLOT_Y0);
+
+  const ptsFor = (from, to) => profile
+    .filter((p) => p.mi >= from && p.mi <= to)
+    .map((p) => `${x(p.mi).toFixed(1)},${y(p.eleFt).toFixed(1)}`);
+
+  // ---- terrain
+  const linePts = ptsFor(startMi, endMi);
+  const areaPath = `M${x(startMi).toFixed(1)},${PLOT_Y1} L${linePts.join(' L')} L${x(endMi).toFixed(1)},${PLOT_Y1}Z`;
+
+  // ---- gridlines and axis labels
+  const grid = [];
+  for (const ft of [0, top / 2, top]) {
+    const gy = y(ft).toFixed(1);
+    grid.push(`<line class="ep-grid" x1="${PLOT_X0}" y1="${gy}" x2="${PLOT_X1}" y2="${gy}"/>`);
+    grid.push(`<text class="ep-ylab" x="${PLOT_X0 - 5}" y="${gy}">${ft.toLocaleString('en-US')}</text>`);
+  }
+  for (let m = PLOT_MILE_STEP; m < spanMi; m += PLOT_MILE_STEP) {
+    const gx = x(startMi + m).toFixed(1);
+    grid.push(`<line class="ep-grid ep-vgrid" x1="${gx}" y1="${PLOT_Y0}" x2="${gx}" y2="${PLOT_Y1}"/>`);
+    if ((spanMi - m) / spanMi < PLOT_EDGE_GUARD) continue;
+    grid.push(`<text class="ep-xlab" x="${gx}" y="${PLOT_H - 5}">${m}</text>`);
+  }
+  // "mi trail" rather than a bare number: the anchors measure trail distance
+  // between turn-off points, while the day card's mileage includes the walk
+  // into and out of villages. Naming the quantity stops the two disagreeing.
+  const totalLabel = `<text class="ep-xlab ep-total" x="${PLOT_X1}" y="${PLOT_H - 5}">`
+    + `${spanMi.toFixed(1)} mi trail</text>`;
+
+  // ---- ground still to cover, shaded
+  const targetMi = Geo.anchorMile(targetLocId);
+  const onLeg = fix && fix.mi >= startMi - 0.5 && fix.mi <= endMi + 0.5;
+  // Above OFF_TRAIL_MAX_MI, snap() picks a near-arbitrary point on the line, so
+  // the marker would lie. The terrain is still true, so it is drawn regardless
+  // — which also keeps the whole feature testable from outside Scotland.
+  const canPlace = onLeg && fix.offM <= 5 * 1609.344;
+  let shade = '';
+  if (canPlace && targetMi != null && targetMi > fix.mi) {
+    const a = Math.max(startMi, fix.mi);
+    const b = Math.min(endMi, targetMi);
+    const seg = ptsFor(a, b);
+    if (seg.length >= 2) {
+      shade = `<path class="ep-shade" d="M${x(a).toFixed(1)},${PLOT_Y1} L${seg.join(' L')} L${x(b).toFixed(1)},${PLOT_Y1}Z"/>`;
+    }
+  }
+
+  // ---- water taps, on the line
+  const water = waterStopsFor(day, startMi, endMi)
+    .map((mi) => `<path class="ep-water" d="${dropletPath(x(mi), y(Geo.elevationAt(mi)))}"/>`)
+    .join('');
+
+  // ---- itinerary points, colored by status rather than by role: there is no
+  // meaningful category among Start/Mid/End, but passed-vs-ahead is real.
+  const dots = dayPoints(day).map((p) => {
+    const mi = Geo.anchorMile(p.locId);
+    if (mi == null || mi < startMi - 0.01 || mi > endMi + 0.01) return '';
+    const dx = x(Math.min(endMi, Math.max(startMi, mi))).toFixed(1);
+    const dy = y(Geo.elevationAt(mi)).toFixed(1);
+    const isTarget = p.locId === targetLocId;
+    const passed = canPlace && !isTarget && mi < fix.mi;
+    const cls = isTarget ? 'ep-dot ep-target' : passed ? 'ep-dot ep-passed' : 'ep-dot';
+    return `<line class="ep-stem" x1="${dx}" y1="${dy}" x2="${dx}" y2="${PLOT_Y1}"/>`
+      + `<circle class="${cls}" cx="${dx}" cy="${dy}" r="${isTarget ? 4.5 : 3}"/>`;
+  }).join('');
+
+  // ---- you are here
+  let marker = '';
+  if (canPlace) {
+    const mx = x(Math.min(endMi, Math.max(startMi, fix.mi))).toFixed(1);
+    const my = y(Geo.elevationAt(fix.mi)).toFixed(1);
+    marker = `<line class="ep-you" x1="${mx}" y1="${PLOT_Y0}" x2="${mx}" y2="${PLOT_Y1}"/>`
+      + `<circle class="ep-youdot" cx="${mx}" cy="${my}" r="3.5"/>`;
+  }
+
+  return `<svg class="elev-plot" viewBox="0 0 ${PLOT_W} ${PLOT_H}" role="img"
+    aria-label="Elevation profile for ${day.label}, ${spanMi.toFixed(1)} miles, rising to ${Math.round(Math.max(...profile.map((p) => p.eleFt)))} feet">
+    ${grid.join('')}
+    <path class="ep-area" d="${areaPath}"/>
+    ${shade}
+    <polyline class="ep-line" points="${linePts.join(' ')}"/>
+    ${water}${dots}${marker}${totalLabel}
+  </svg>`;
+}
+
 // ---- popup -----------------------------------------------------------
 
 let geoOpenFor = null; // { locId, day } — the popup's current subject
@@ -763,6 +936,7 @@ function renderGeoResult(locId, day, cache) {
     <p class="geo-loc">${loc.name}</p>
     <p class="geo-hl">${headline}</p>
     ${offLine}
+    ${elevationPlotSvg(day, fix, locId)}
     ${rows.length ? `<div class="geo-rows">${rows.map(([k, v]) =>
       `<p class="geo-row"><span>${k}</span><span>${v}</span></p>`).join('')}</div>` : ''}
     ${others ? `<ul class="geo-others">${others}</ul>` : ''}

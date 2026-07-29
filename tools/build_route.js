@@ -101,6 +101,7 @@ function measure(pts) {
   let ref = smoothed[0];
   pts[0].mi = 0;
   pts[0].ascFt = 0;
+  pts[0].eleFt = smoothed[0] * FT_PER_M;
 
   for (let i = 1; i < pts.length; i++) {
     meters += metersBetween(pts[i - 1], pts[i]);
@@ -111,6 +112,10 @@ function measure(pts) {
     else if (rise < -ASCENT_THRESHOLD_M) { ref = smoothed[i]; }
     pts[i].mi = meters / M_PER_MILE;
     pts[i].ascFt = ascent * FT_PER_M;
+    // The smoothed height itself, kept rather than discarded: this is what the
+    // elevation plot draws. Note it is NOT interchangeable with ascFt above —
+    // that is cumulative climb (monotonic), this is height above sea level.
+    pts[i].eleFt = smoothed[i] * FT_PER_M;
   }
   return pts;
 }
@@ -161,15 +166,19 @@ function anchorFor(pts, lat, lon) {
 function emit(simplified, anchors, total) {
   const flat = [];
   for (const p of simplified) {
-    flat.push(p.lat.toFixed(5), p.lon.toFixed(5), p.mi.toFixed(4), Math.round(p.ascFt));
+    flat.push(
+      p.lat.toFixed(5), p.lon.toFixed(5), p.mi.toFixed(4),
+      Math.round(p.ascFt), Math.round(p.eleFt)
+    );
   }
 
-  // Four numbers per point: latitude, longitude, cumulative miles, cumulative
-  // ascent in feet. A flat array rather than objects purely for size — 1,166
-  // points of {lat,lon,mi,ascFt} costs three times as much to ship.
+  // Five numbers per point: latitude, longitude, cumulative miles, cumulative
+  // ascent in feet, height above sea level in feet. A flat array rather than
+  // objects purely for size — 1,166 points of {lat,lon,mi,ascFt,eleFt} costs
+  // three times as much to ship.
   const rows = [];
-  for (let i = 0; i < flat.length; i += 4 * 8) {
-    rows.push('  ' + flat.slice(i, i + 4 * 8).join(','));
+  for (let i = 0; i < flat.length; i += 5 * 6) {
+    rows.push('  ' + flat.slice(i, i + 5 * 6).join(','));
   }
 
   const anchorLines = Object.entries(anchors)
@@ -183,8 +192,10 @@ function emit(simplified, anchors, total) {
 //
 // Total route: ${total.mi.toFixed(2)} mi, ${Math.round(total.ascFt).toLocaleString('en-US')} ft of smoothed ascent.
 
-// Flat quadruples: latitude, longitude, cumulative miles, cumulative ascent (ft).
-export const ROUTE_STRIDE = 4;
+// Flat quintuples: latitude, longitude, cumulative miles, cumulative ascent
+// (ft), elevation above sea level (ft). Ascent only ever increases; elevation
+// rises and falls — the plot needs the latter.
+export const ROUTE_STRIDE = 5;
 export const ROUTE = [
 ${rows.join(',\n')},
 ];

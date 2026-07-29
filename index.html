@@ -30,6 +30,9 @@
   --green: #24512F;
   --amber: #7A5A16;
   --red: #6E2318;
+  /* Water taps on the elevation plot. Deliberately not the map's #1565C0,
+     which is tuned for a basemap and glares on parchment. */
+  --water: #2C5F7C;
 }
 body.dusk {
   --ground: #9C8E6D;
@@ -39,6 +42,7 @@ body.dusk {
   --ink-mute: rgba(28,58,36,.60);
   --rule: rgba(28,58,36,.30);
   --panel: rgba(28,58,36,.055);
+  --water: #24485C;
 }
 
 * { box-sizing: border-box; }
@@ -393,6 +397,31 @@ svg.hill .stroke { stroke: currentColor; fill: none; stroke-width: 1; }
 .geo-off { margin: 6px 0 0; font-size: 12px; color: var(--ink-mute); line-height: 1.5; }
 .geo-status { margin: 10px 0; font-size: 15px; color: var(--ink-mute); }
 .geo-explain { margin: 4px 0 16px; font-size: 14px; color: var(--ink-mute); line-height: 1.5; }
+
+/* ---- elevation plot (geo popup) --------------------------------------
+   Every color here is a CSS variable so dusk mode re-themes the plot with no
+   redraw — the reason this is SVG rather than canvas. */
+.elev-plot { display: block; width: 100%; height: auto; margin: 14px 0 0; overflow: visible; }
+.ep-grid { stroke: var(--rule); stroke-width: 1; opacity: .5; }
+.ep-vgrid { opacity: .3; }
+.ep-ylab {
+  fill: var(--ink-mute); font: 600 9px/1 system-ui, sans-serif;
+  text-anchor: end; dominant-baseline: middle;
+}
+.ep-xlab { fill: var(--ink-mute); font: 600 9px/1 system-ui, sans-serif; text-anchor: middle; }
+.ep-total { text-anchor: end; letter-spacing: .04em; }
+.ep-area { fill: var(--ink); opacity: .13; }
+/* The ground still to cover, deepened rather than recolored — it is the same
+   terrain, not a different category. */
+.ep-shade { fill: var(--ink); opacity: .17; }
+.ep-line { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; }
+.ep-water { fill: var(--water); }
+.ep-stem { stroke: var(--rule); stroke-width: 1; }
+.ep-dot { fill: var(--ink); stroke: var(--ground); stroke-width: 1.2; }
+.ep-dot.ep-target { fill: var(--amber); stroke-width: 1.5; }
+.ep-dot.ep-passed { fill: var(--ground); stroke: var(--ink-mute); }
+.ep-you { stroke: var(--red); stroke-width: 1.2; stroke-dasharray: 3 2; }
+.ep-youdot { fill: var(--red); stroke: var(--ground); stroke-width: 1.2; }
 
 .geo-rows { margin: 16px 0 0; border-top: 1px solid var(--rule); }
 .geo-row {

@@ -73,7 +73,10 @@ const project = (lat, lon) => [lon * KX, lat * KY];
 
 function pointAt(i) {
   const o = i * ROUTE_STRIDE;
-  return { lat: ROUTE[o], lon: ROUTE[o + 1], mi: ROUTE[o + 2], ascFt: ROUTE[o + 3] };
+  return {
+    lat: ROUTE[o], lon: ROUTE[o + 1], mi: ROUTE[o + 2],
+    ascFt: ROUTE[o + 3], eleFt: ROUTE[o + 4],
+  };
 }
 
 const routeLen = ROUTE.length / ROUTE_STRIDE;
@@ -117,6 +120,50 @@ export function snap(lat, lon) {
     }
   }
   return { mi: bestMi, ascFt: bestAscFt, offM: best, nearLat: bestNearLat, nearLon: bestNearLon };
+}
+
+// ---------------------------------------------------------------- elevation
+//
+// Height above sea level, as opposed to ascFt above it, which is cumulative
+// climb and only ever increases. These two are easy to confuse and produce
+// very different pictures: plotting ascFt gives a staircase that never comes
+// back down.
+
+// Height at an arbitrary trail mile, interpolated between the two route points
+// either side of it. Clamped at both ends rather than returning null, so a fix
+// snapped fractionally past the last point still answers.
+export function elevationAt(mi) {
+  if (mi <= ROUTE[2]) return pointAt(0).eleFt;
+  const last = pointAt(routeLen - 1);
+  if (mi >= last.mi) return last.eleFt;
+  for (let i = 0; i < routeLen - 1; i++) {
+    const a = pointAt(i);
+    const b = pointAt(i + 1);
+    if (mi >= a.mi && mi <= b.mi) {
+      const span = b.mi - a.mi;
+      const u = span > 0 ? (mi - a.mi) / span : 0;
+      return a.eleFt + (b.eleFt - a.eleFt) * u;
+    }
+  }
+  return last.eleFt;
+}
+
+// The elevation profile between two trail miles, as { mi, eleFt } samples.
+//
+// Both endpoints are interpolated exactly rather than snapped to the nearest
+// route point, so the drawn area closes flush against the plot's left and
+// right edges instead of starting wherever a point happens to fall just
+// inside. At this route's resolution a leg holds 104-236 points, which is
+// already under one point per pixel at the popup's width — no decimation.
+export function profileFor(startMi, endMi) {
+  if (!(endMi > startMi)) return [];
+  const out = [{ mi: startMi, eleFt: elevationAt(startMi) }];
+  for (let i = 0; i < routeLen; i++) {
+    const p = pointAt(i);
+    if (p.mi > startMi && p.mi < endMi) out.push({ mi: p.mi, eleFt: p.eleFt });
+  }
+  out.push({ mi: endMi, eleFt: elevationAt(endMi) });
+  return out;
 }
 
 // The trail position of an itinerary stop — { mi, ascFt } — or null for stops
