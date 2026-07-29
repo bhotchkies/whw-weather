@@ -813,6 +813,7 @@ let mapController = null;
 let mapDay = null;
 let mapFix = null;
 let deferredInstallPrompt = null;
+let swReg = null; // set once registered — reused to re-check for updates on foreground
 
 function mapEls() {
   return {
@@ -1399,6 +1400,11 @@ function wire() {
     if (document.hidden) return;
     markNow();   // the hour may well have rolled over while the app was away
     refresh();
+    // The hourly setInterval below is throttled or paused while the tab sits
+    // backgrounded — exactly the common case here (open once, walk all day,
+    // reopen in the evening). Foregrounding is the moment that reliably
+    // fires, so it's also the moment to re-check for a new app version.
+    swReg?.update();
   });
 
   // Roll the marker over without a full re-render, which would reset the scroll
@@ -1470,6 +1476,7 @@ function boot() {
     // updateViaCache: 'none' so the worker script itself is never read from the
     // HTTP cache when checking for updates.
     navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => {
+      swReg = reg;
       reg.update();
       setInterval(() => reg.update(), 60 * 60 * 1000);
     }).catch(() => {});
