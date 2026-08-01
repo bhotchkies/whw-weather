@@ -1178,9 +1178,11 @@ function initInstallBanner() {
 const GLANCE_STRIP_HOURS = 4;      // 16 blocks at ~22px on a 375px screen
 const GLANCE_SCAN_HOURS = 8;       // how far ahead to look for the next flip
 
-// Which of the day's points the group is nearest, from the schedule. Deliberately
-// not GPS: no permission prompt, no battery, no cold-fix delay, and the name is
-// printed large so a wrong guess is obvious and one tap away from fixed.
+// Which of the day's points the group is nearest, from the schedule alone.
+// Deliberately not GPS: no permission prompt, no battery, no cold-fix delay,
+// and the name is printed large so a wrong guess is obvious and one tap away
+// from fixed. This is the fallback closestPoint() reaches for when there is
+// no usable GPS fix yet — once a fix exists, closestPoint() prefers it.
 function inferPoint(day, hourNow) {
   const pts = [];
   if (day.stops) {
@@ -1197,6 +1199,24 @@ function inferPoint(day, hourNow) {
   let idx = 0;
   pts.forEach((p, i) => { if (hourNow >= p.from) idx = i; });
   return { points: pts, index: idx };
+}
+
+// The closest of today's points that GPS says isn't behind you yet, in trail
+// order — same 0.05mi "passed" threshold as the Dist chip (geoStatusFor), so
+// the glance label never disagrees with the number sitting right next to it.
+// Trail mileage only increases along `points`, so pass/fail is monotonic:
+// the first not-yet-passed point is also the nearest one ahead.
+//
+// Falls back to `fallbackIndex` (the schedule guess) whenever GPS can't
+// answer — no fix recorded for today yet, or a point that isn't on the
+// trail-mile system at all (travel-day stops like an airport).
+function closestPoint(points, day, fallbackIndex) {
+  const fix = Geo.getFix(day.date)?.last ?? null;
+  if (!fix) return fallbackIndex;
+  const dists = points.map((p) => Geo.distanceTo(fix, p.loc));
+  if (dists.some((d) => !d || d.tooFar)) return fallbackIndex;
+  const idx = dists.findIndex((d) => d.totalMi > -0.05);
+  return idx >= 0 ? idx : points.length - 1;
 }
 
 // Quarter-hour slots for a location from `fromHour` onward on `date`.
@@ -1275,12 +1295,15 @@ function renderGlance() {
 
   const inferred = inferPoint(day, hourNow);
   const points = inferred.points ?? [{ loc: day.to }];
-  const idx = glancePointOverride != null
-    ? glancePointOverride % points.length
-    : (inferred.index ?? 0);
+  const maxIdx = points.length - 1;
+  const baseIdx = closestPoint(points, day, inferred.index ?? 0);
+  // Tapping only ever steps forward from the closest not-passed point, and
+  // stops at the day's last point rather than wrapping back round to ones
+  // already behind you.
+  const idx = Math.min(baseIdx + (glancePointOverride ?? 0), maxIdx);
   const locId = points[idx].loc;
-  // Only offer the cycle when the day actually has somewhere else to go.
-  const canCycle = points.length > 1;
+  // Only offer the cycle when there's still a future point left to jump to.
+  const canCycle = idx < maxIdx;
 
   const { slots, coarse } = quartersFrom(locId, day.date, hourNow, GLANCE_SCAN_HOURS);
   const head = glanceHeadline(slots);
