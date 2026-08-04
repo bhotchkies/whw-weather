@@ -422,8 +422,21 @@ function dayCard(day) {
   } else {
     const walkFrom = Math.floor(band.depart);
     const walkTo = Math.min(23, Math.ceil(band.high));
-    const midFrom = Math.max(walkFrom, Math.floor(band.depart + (band.high - band.depart) * 0.35));
-    const midTo = Math.min(23, midFrom + 4);
+    // We're often out the door earlier than the schedule guess (as early as
+    // 7am), so the Start window begins at 7 whenever the actual departure
+    // would otherwise put it later. walkFrom itself stays untouched (it also
+    // anchors Midway's earliest-allowed start below), so days that already
+    // depart before 7 are unaffected.
+    const startFrom = Math.min(walkFrom, 7);
+    // Midway's inferred start, before the early-arrival adjustment below —
+    // the window's end stays anchored to this so widening the start doesn't
+    // also shrink how far past it the forecast runs.
+    const midFromBase = Math.max(walkFrom, Math.floor(band.depart + (band.high - band.depart) * 0.35));
+    // We tend to arrive earlier than the schedule guess, so start the
+    // Midway window 2 hours before its inferred time (never before the
+    // day's actual departure hour).
+    const midFrom = Math.max(walkFrom, midFromBase - 2);
+    const midTo = Math.min(23, midFromBase + 4);
 
     const lunchLine = day.lunch
       ? `<p class="lunch">${day.lunch.kind === 'booked'
@@ -432,10 +445,12 @@ function dayCard(day) {
       : '';
 
     blocks =
-      block('Start', day.from, day.date, walkFrom, Math.min(walkFrom + 4, 23)) +
+      block('Start', day.from, day.date, startFrom, Math.min(walkFrom + 4, 23)) +
       (day.mid ? block('Midway', day.mid, day.date, midFrom, midTo, lunchLine) : '') +
       exposedBlocks(day) +
-      block('End', day.to, day.date, 16, 23);
+      // We tend to arrive earlier than a fixed 4pm assumption, so start the
+      // End window 3 hours earlier.
+      block('End', day.to, day.date, 13, 23);
   }
 
   return `<article class="day" data-date="${day.date}">
@@ -1295,15 +1310,17 @@ function renderGlance() {
 
   const inferred = inferPoint(day, hourNow);
   const points = inferred.points ?? [{ loc: day.to }];
-  const maxIdx = points.length - 1;
   const baseIdx = closestPoint(points, day, inferred.index ?? 0);
-  // Tapping only ever steps forward from the closest not-passed point, and
-  // stops at the day's last point rather than wrapping back round to ones
-  // already behind you.
-  const idx = Math.min(baseIdx + (glancePointOverride ?? 0), maxIdx);
+  // Tapping steps forward from the closest not-passed point and wraps back
+  // round once you reach the day's last point. A hard stop at the last point
+  // (no wrap) used to leave nothing to tap at all whenever baseIdx already
+  // *was* the last point — which is most of the evening, since the schedule
+  // fallback resolves to day.to from band.high - 0.5 onward, and any time
+  // GPS reports you've already passed it. Wrapping guarantees a tap always
+  // moves somewhere.
+  const idx = (baseIdx + (glancePointOverride ?? 0)) % points.length;
   const locId = points[idx].loc;
-  // Only offer the cycle when there's still a future point left to jump to.
-  const canCycle = idx < maxIdx;
+  const canCycle = points.length > 1;
 
   const { slots, coarse } = quartersFrom(locId, day.date, hourNow, GLANCE_SCAN_HOURS);
   const head = glanceHeadline(slots);
