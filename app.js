@@ -422,6 +422,12 @@ function dayCard(day) {
   } else {
     const walkFrom = Math.floor(band.depart);
     const walkTo = Math.min(23, Math.ceil(band.high));
+    // We're often out the door earlier than the schedule guess (as early as
+    // 7am), so the Start window begins at 7 whenever the actual departure
+    // would otherwise put it later. walkFrom itself stays untouched (it also
+    // anchors Midway's earliest-allowed start below), so days that already
+    // depart before 7 are unaffected.
+    const startFrom = Math.min(walkFrom, 7);
     // Midway's inferred start, before the early-arrival adjustment below —
     // the window's end stays anchored to this so widening the start doesn't
     // also shrink how far past it the forecast runs.
@@ -439,7 +445,7 @@ function dayCard(day) {
       : '';
 
     blocks =
-      block('Start', day.from, day.date, walkFrom, Math.min(walkFrom + 4, 23)) +
+      block('Start', day.from, day.date, startFrom, Math.min(walkFrom + 4, 23)) +
       (day.mid ? block('Midway', day.mid, day.date, midFrom, midTo, lunchLine) : '') +
       exposedBlocks(day) +
       // We tend to arrive earlier than a fixed 4pm assumption, so start the
