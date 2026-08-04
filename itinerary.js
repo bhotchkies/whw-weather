@@ -6,9 +6,15 @@
 // latitude/longitude lists sent to Open-Meteo, so it must stay stable.
 export const LOCATIONS = [
   { id: 'milngavie',   name: 'Milngavie',              lat: 55.9417, lon: -4.3122 },
-  { id: 'dumgoyne',    name: 'Dumgoyne',               lat: 55.9986, lon: -4.3767 },
+  // Corrected 2026-08-04: sat ~850m off the trail and ~2 miles short of
+  // Dumgoyne's actual cafes (no single booked one, so this is the midpoint
+  // of Turnip The Beet and Beech Tree Cafe — both on-trail, ~0.13mi apart).
+  { id: 'dumgoyne',    name: 'Dumgoyne',               lat: 56.02482, lon: -4.37573 },
   { id: 'drymen',      name: 'Drymen',                 lat: 56.0619, lon: -4.4457 },
-  { id: 'balmaha',     name: 'Balmaha',                lat: 56.0742, lon: -4.5617 },
+  // Corrected 2026-08-04: sat ~1.45km off the trail and ~0.28mi further along
+  // it than the Oak Tree Inn, the actual booked lunch stop, whose coordinates
+  // (from places.js) are used here instead.
+  { id: 'balmaha',     name: 'Balmaha',                lat: 56.08408, lon: -4.53991 },
   { id: 'rowardennan', name: 'Rowardennan',            lat: 56.1560, lon: -4.6420 },
   { id: 'inversnaid',  name: 'Inversnaid',             lat: 56.2400, lon: -4.6890 },
   { id: 'inverarnan',  name: 'Inverarnan',             lat: 56.3335, lon: -4.7175 },

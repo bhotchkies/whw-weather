@@ -212,18 +212,19 @@ export const ROUTE_MILES = 95.6325;
 // Trail mile and cumulative ascent (ft) of each itinerary stop. For villages
 // off the trail this is the point at which you leave the trail for them, not
 // the village itself.
-// inveroran and kingshouse below were corrected 2026-08-04 after itinerary.js's
-// coordinates for them moved to the actual hotel locations, by projecting the
-// new coordinates onto the ROUTE polyline above rather than re-running the
-// build tool — tools/west_highland_way.gpx isn't checked in (see .gitignore).
-// That means these two carry the polyline's 10m simplification tolerance
-// instead of the full-resolution accuracy every other anchor here has; re-run
-// tools/build_route.js against the GPX to true them up if that matters later.
+// dumgoyne, balmaha, inveroran and kingshouse below were corrected 2026-08-04
+// after itinerary.js's coordinates for them moved to their actual venues, by
+// projecting the new coordinates onto the ROUTE polyline above rather than
+// re-running the build tool — tools/west_highland_way.gpx isn't checked in
+// (see .gitignore). That means these four carry the polyline's 10m
+// simplification tolerance instead of the full-resolution accuracy every
+// other anchor here has; re-run tools/build_route.js against the GPX to true
+// them up if that matters later.
 export const ROUTE_ANCHORS = {
   milngavie: { mi: 0.0010, ascFt: 0 },
-  dumgoyne: { mi: 5.3348, ascFt: 441 },
+  dumgoyne: { mi: 7.3143, ascFt: 492 },
   drymen: { mi: 11.5398, ascFt: 723 },
-  balmaha: { mi: 19.2293, ascFt: 1856 },
+  balmaha: { mi: 18.9351, ascFt: 1856 },
   rowardennan: { mi: 27.0139, ascFt: 2669 },
   inversnaid: { mi: 33.7381, ascFt: 3079 },
   inverarnan: { mi: 40.8656, ascFt: 3743 },
