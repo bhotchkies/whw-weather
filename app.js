@@ -422,8 +422,15 @@ function dayCard(day) {
   } else {
     const walkFrom = Math.floor(band.depart);
     const walkTo = Math.min(23, Math.ceil(band.high));
-    const midFrom = Math.max(walkFrom, Math.floor(band.depart + (band.high - band.depart) * 0.35));
-    const midTo = Math.min(23, midFrom + 4);
+    // Midway's inferred start, before the early-arrival adjustment below —
+    // the window's end stays anchored to this so widening the start doesn't
+    // also shrink how far past it the forecast runs.
+    const midFromBase = Math.max(walkFrom, Math.floor(band.depart + (band.high - band.depart) * 0.35));
+    // We tend to arrive earlier than the schedule guess, so start the
+    // Midway window 2 hours before its inferred time (never before the
+    // day's actual departure hour).
+    const midFrom = Math.max(walkFrom, midFromBase - 2);
+    const midTo = Math.min(23, midFromBase + 4);
 
     const lunchLine = day.lunch
       ? `<p class="lunch">${day.lunch.kind === 'booked'
@@ -435,7 +442,9 @@ function dayCard(day) {
       block('Start', day.from, day.date, walkFrom, Math.min(walkFrom + 4, 23)) +
       (day.mid ? block('Midway', day.mid, day.date, midFrom, midTo, lunchLine) : '') +
       exposedBlocks(day) +
-      block('End', day.to, day.date, 16, 23);
+      // We tend to arrive earlier than a fixed 4pm assumption, so start the
+      // End window 3 hours earlier.
+      block('End', day.to, day.date, 13, 23);
   }
 
   return `<article class="day" data-date="${day.date}">
