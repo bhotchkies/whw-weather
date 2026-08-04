@@ -15,8 +15,12 @@ export const LOCATIONS = [
   { id: 'crianlarich', name: 'Crianlarich high point', lat: 56.3860, lon: -4.6270 },
   { id: 'tyndrum',     name: 'Tyndrum',                lat: 56.4340, lon: -4.7130 },
   { id: 'orchy',       name: 'Bridge of Orchy',        lat: 56.5210, lon: -4.7690 },
-  { id: 'inveroran',   name: 'Inveroran',              lat: 56.5495, lon: -4.8175 },
-  { id: 'kingshouse',  name: 'Kingshouse',             lat: 56.6428, lon: -4.8140 },
+  // Corrected 2026-08-04: the original coordinates sat 0.47mi/0.5mi off the
+  // trail respectively — over a mile from the actual hotels (Inveroran Hotel,
+  // Kingshouse Hotel/"The Way's Inn") whose Google Maps pins are used below.
+  // See tools/build_route.js and places.js for how those pins were sourced.
+  { id: 'inveroran',   name: 'Inveroran',              lat: 56.53294, lon: -4.80749 },
+  { id: 'kingshouse',  name: 'Kingshouse',             lat: 56.65143, lon: -4.84122 },
   { id: 'kinlochleven',name: 'Kinlochleven',           lat: 56.7135, lon: -4.9640 },
   // Corrected 2026-07-28: the original coordinate sat ~3 km off the trail, on
   // a hillside in the next glen. This point is on the trail itself, at the
