@@ -1295,15 +1295,17 @@ function renderGlance() {
 
   const inferred = inferPoint(day, hourNow);
   const points = inferred.points ?? [{ loc: day.to }];
-  const maxIdx = points.length - 1;
   const baseIdx = closestPoint(points, day, inferred.index ?? 0);
-  // Tapping only ever steps forward from the closest not-passed point, and
-  // stops at the day's last point rather than wrapping back round to ones
-  // already behind you.
-  const idx = Math.min(baseIdx + (glancePointOverride ?? 0), maxIdx);
+  // Tapping steps forward from the closest not-passed point and wraps back
+  // round once you reach the day's last point. A hard stop at the last point
+  // (no wrap) used to leave nothing to tap at all whenever baseIdx already
+  // *was* the last point — which is most of the evening, since the schedule
+  // fallback resolves to day.to from band.high - 0.5 onward, and any time
+  // GPS reports you've already passed it. Wrapping guarantees a tap always
+  // moves somewhere.
+  const idx = (baseIdx + (glancePointOverride ?? 0)) % points.length;
   const locId = points[idx].loc;
-  // Only offer the cycle when there's still a future point left to jump to.
-  const canCycle = idx < maxIdx;
+  const canCycle = points.length > 1;
 
   const { slots, coarse } = quartersFrom(locId, day.date, hourNow, GLANCE_SCAN_HOURS);
   const head = glanceHeadline(slots);
