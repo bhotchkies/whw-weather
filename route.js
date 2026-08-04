@@ -212,6 +212,13 @@ export const ROUTE_MILES = 95.6325;
 // Trail mile and cumulative ascent (ft) of each itinerary stop. For villages
 // off the trail this is the point at which you leave the trail for them, not
 // the village itself.
+// inveroran and kingshouse below were corrected 2026-08-04 after itinerary.js's
+// coordinates for them moved to the actual hotel locations, by projecting the
+// new coordinates onto the ROUTE polyline above rather than re-running the
+// build tool — tools/west_highland_way.gpx isn't checked in (see .gitignore).
+// That means these two carry the polyline's 10m simplification tolerance
+// instead of the full-resolution accuracy every other anchor here has; re-run
+// tools/build_route.js against the GPX to true them up if that matters later.
 export const ROUTE_ANCHORS = {
   milngavie: { mi: 0.0010, ascFt: 0 },
   dumgoyne: { mi: 5.3348, ascFt: 441 },
@@ -223,8 +230,8 @@ export const ROUTE_ANCHORS = {
   crianlarich: { mi: 46.3592, ascFt: 4916 },
   tyndrum: { mi: 52.4421, ascFt: 5700 },
   orchy: { mi: 59.5085, ascFt: 6187 },
-  inveroran: { mi: 62.9292, ascFt: 6869 },
-  kingshouse: { mi: 70.5987, ascFt: 7906 },
+  inveroran: { mi: 61.7170, ascFt: 6721 },
+  kingshouse: { mi: 71.3920, ascFt: 7910 },
   kinlochleven: { mi: 80.2030, ascFt: 9259 },
   sleubhaich: { mi: 85.0009, ascFt: 10419 },
   fortwilliam: { mi: 95.4017, ascFt: 11234 },
