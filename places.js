@@ -296,6 +296,11 @@ export const PLACES = [
   },
 
   // ---- Aug 6 — Kinlochleven ----------------------------------------------
+  // On Rannoch Moor, between Inveroran and Kingshouse.
+  {
+    id: 'ba-cottage-turnoff', name: 'Ba Cottage Turnoff', kind: 'sight',
+    dates: ['2026-08-06'], lat: 56.604444, lon: -4.807787,
+  },
   // https://maps.app.goo.gl/D7f2Xfg2rQenS8bd8 — resolves to Kingshouse Hotel.
   {
     id: 'the-ways-inn', name: 'The Ways Inn', kind: 'food',
@@ -347,6 +352,11 @@ export const PLACES = [
   },
 
   // ---- Aug 7 — Fort William ---------------------------------------------
+  // Between the Tigh-na-Sleubhaich ruins and Glen Nevis.
+  {
+    id: 'dun-deardril-turnoff', name: 'Dun Deardril Fort Turnoff', kind: 'sight',
+    dates: ['2026-08-07'], lat: 56.785987, lon: -5.072113,
+  },
   // https://maps.app.goo.gl/iKwu9NJBnRbs3jK99
   {
     id: 'macaris', name: "Macari's", kind: 'food',
