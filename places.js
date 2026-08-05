@@ -20,9 +20,6 @@
 // not a station-specific location. Both kept under the trip doc's name since
 // that's what the group calls them; coordinates are Google's regardless.
 //
-// "Highland Get Away" (Day 6 dinner alternative / Day 7 breakfast) has no map
-// link in the doc, so it's left out — same rule as everything else here.
-//
 // Honesty boxes, water taps, groceries and gear shops come from a set of
 // Google My Maps exports ("Honesty Box.kmz", "Water.kmz", "Grocery.kmz",
 // "Gear Shop.kmz") rather than the trip doc — each entry notes its source
@@ -325,6 +322,13 @@ export const PLACES = [
   {
     id: 'wee-midgie-honesty-box', name: 'The Wee Midgie Honesty Box', kind: 'food',
     dates: ['2026-08-06', '2026-08-07'], lat: 56.71659, lon: -4.96528,
+  },
+  // https://maps.app.goo.gl/kVRXYnKCR6cupccDA — Day 6 dinner alternative /
+  // Day 7 breakfast. Coordinates given directly as 56°42'48.5"N, 4°57'48.6"W
+  // (the short link couldn't be resolved from this environment).
+  {
+    id: 'the-highland-getaway', name: 'The Highland Getaway', kind: 'food',
+    dates: ['2026-08-06', '2026-08-07'], lat: 56.71347, lon: -4.96350,
   },
   // From "Grocery.kmz".
   {
